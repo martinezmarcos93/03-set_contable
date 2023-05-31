@@ -3,23 +3,8 @@ from M2SelectClient import VentanaTipoCliente
 from M3TablaMono import MainWindow
 from M4TablaResp import MainWindowRI
 from M5Calculadoras import VentanaCalculadoras
-import tkinter as tk
-import M6LiquidadorSueldos 
+from M6LiquidadorSueldos import VentanaLiquidadorSueldos
 from PyQt5.QtWidgets import QApplication
-from PySide2.QtWidgets import QWidget, QVBoxLayout, QFrame, QMainWindow
-from PySide2.QtCore import Qt
-from PySide2.QtGui import QWindow
-
-
-class TkinterWrapper(QWidget):
-    def __init__(self, root):
-        super().__init__()
-        self.create_window(root)
-
-    def create_window(self, root):
-        container = QWindow.fromWinId(root.winfo_id())
-        layout = QVBoxLayout(self)
-        layout.addWidget(QFrame.createWindowContainer(container, self))
 
 
 class MainApp:
@@ -38,6 +23,7 @@ class MainApp:
         self.ventana_select_client = VentanaTipoCliente()
         self.ventana_select_client.monotributista_seleccionado.connect(self.mostrar_ventana_tabla_mono)
         self.ventana_select_client.resp_inscripto_seleccionado.connect(self.mostrar_ventana_tabla_resp)
+        self.ventana_select_client.calculadoras_seleccionado.connect(self.mostrar_ventana_calculadoras)
         self.ventana_select_client.show()
 
     def mostrar_ventana_tabla_mono(self):
@@ -56,12 +42,14 @@ class MainApp:
 
     def mostrar_ventana_calculadoras(self):
         # Mostrar ventana de calculadoras
+        self.ventana_select_client.close()
+
         self.ventana_calculadoras = VentanaCalculadoras()
         self.ventana_calculadoras.show()
 
     def mostrar_ventana_liquidador_sueldos(self):
         # Mostrar ventana de liquidador de sueldos
-        self.ventana_liquidador_sueldos = M6LiquidadorSueldos.VentanaLiquidadorSueldos()
+        self.ventana_liquidador_sueldos = VentanaLiquidadorSueldos()
         self.ventana_liquidador_sueldos.show()
 
     def run(self):
@@ -71,3 +59,4 @@ class MainApp:
 if __name__ == "__main__":
     main_app = MainApp()
     main_app.run()
+
