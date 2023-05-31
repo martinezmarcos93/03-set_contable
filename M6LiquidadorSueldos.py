@@ -23,7 +23,7 @@ class VentanaLiquidadorSueldos():
         remunerativo = float(entrada_remunerativo.text())
 
         # Crear el documento PDF
-        pdf_filename = "liquidacion_sueldos.pdf"
+        pdf_filename = 'liquidacion_sueldo.pdf'
         pdf_canvas = canvas.Canvas(pdf_filename, pagesize=letter)
 
         # Dibujar el encabezado
@@ -216,36 +216,37 @@ class VentanaLiquidadorSueldos():
         pdf_canvas.showPage()
         pdf_canvas.save()
 
+    def limpiar_campos(self):
+        # Restablecer los campos de entrada a su estado inicial
+        entrada_nombre.setText("")
+        entrada_cuit.setText("")
+        entrada_domicilio.setText("")
+        entrada_legajo.setText("")
+        entrada_apellido_nombre.setText("")
+        entrada_cuil.setText("")
+        entrada_periodo.setText("")
+        entrada_convenio.setText("")
+        entrada_fecha_ingreso.setText("")
+        entrada_sueldo_jornal.setText("")
+        entrada_obra_social.setText("")
+        entrada_puesto.setText("")
+        entrada_dias_trabajados.setText("")
+        entrada_remunerativo.setText("")
+                
 
-        def limpiar_campos(self):
-            # Restablecer los campos de entrada a su estado inicial
-            entrada_nombre.setText("")
-            entrada_cuit.setText("")
-            entrada_domicilio.setText("")
-            entrada_legajo.setText("")
-            entrada_apellido_nombre.setText("")
-            entrada_cuil.setText("")
-            entrada_periodo.setText("")
-            entrada_convenio.setText("")
-            entrada_fecha_ingreso.setText("")
-            entrada_sueldo_jornal.setText("")
-            entrada_obra_social.setText("")
-            entrada_puesto.setText("")
-            entrada_dias_trabajados.setText("")
-            entrada_remunerativo.setText("")
+    def confirmar_liquidacion(self):
+        respuesta = QMessageBox.question(ventana, "Confirmación", "¿Desea liquidar otro sueldo?", QMessageBox.Yes | QMessageBox.No)
+        if respuesta == QMessageBox.Yes:
+            # Limpiar los campos de entrada
+            VentanaLiquidadorSueldos.limpiar_campos(self)
+            # Mostrar mensaje de éxito
+            QMessageBox.information(None, "Éxito", "El cálculo de la liquidación de sueldos se ha completado y el PDF ha sido generado correctamente.")
+            # Mostrar un mensaje de éxito
+            QMessageBox.information(None, "Éxito", "La liquidación ha sido generada correctamente.")
+        else:
+            # Cerrar la aplicación
+            ventana.close()
 
-        def confirmar_liquidacion(self):
-            respuesta = QMessageBox.question(ventana, "Confirmación", "¿Desea liquidar otro sueldo?", QMessageBox.Yes | QMessageBox.No)
-            if respuesta == QMessageBox.Yes:
-                # Limpiar los campos de entrada
-                limpiar_campos(self)
-                # Mostrar mensaje de éxito
-                QMessageBox.information(None, "Éxito", "El cálculo de la liquidación de sueldos se ha completado y el PDF ha sido generado correctamente.")
-                # Mostrar un mensaje de éxito
-                QMessageBox.information(None, "Éxito", "La liquidación ha sido generada correctamente.")
-            else:
-                # Cerrar la aplicación
-                ventana.close()
 
 # Crear la aplicación y la ventana principal
 app = QtWidgets.QApplication(sys.argv)
@@ -284,7 +285,7 @@ etiqueta_remunerativo = QtWidgets.QLabel("Remunerativo:")
 entrada_remunerativo = QtWidgets.QLineEdit()
 
 boton_calcular = QtWidgets.QPushButton("Calcular")
-boton_calcular.clicked.connect(VentanaLiquidadorSueldos.ejecutar_codigo)
+boton_calcular.clicked.connect(VentanaLiquidadorSueldos.confirmar_liquidacion)
 
 
 # Crear el diseño de la ventana
