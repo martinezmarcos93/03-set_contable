@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon, QPixmap
 import sqlite3
 
 # Conexión a la base de datos SQLite
@@ -20,6 +21,7 @@ class AddDataWindow(QWidget):
         self.parent = parent
         self.setWindowTitle('Añadir Datos')
         self.setGeometry(100, 100, 300, 400)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         self.cliente_label = QLabel('Cliente:', self)
         self.cliente_input = QLineEdit(self)
@@ -109,6 +111,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle('Estudio Contable - Monotributistas')
         self.setGeometry(500, 100, 1000, 900)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         self.table = QTableWidget(self)
         self.table.setColumnCount(10)

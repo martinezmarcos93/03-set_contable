@@ -1,11 +1,13 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout
+from PyQt6.QtGui import QIcon, QPixmap
 
 class VentanaTipoCliente(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Tipo de cliente")
         self.setGeometry(200, 200, 400, 200)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         self.monotributistas_button = QPushButton("Monotributistas")
         self.responsables_button = QPushButton("Responsables Inscriptos")
