@@ -1,13 +1,16 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QCheckBox
 from PyQt6.QtCore import Qt
-import sqlite3
+from PyQt6.QtGui import QIcon, QPixmap
+import json
 
 class VentanaInicioSesion(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Estudio Contable")
-        self.setGeometry(200, 200, 400, 200)
+        self.setGeometry(200, 200, 300, 200)
+        self.setWindowIcon(QIcon("logo1.jpg"))
+        
 
         self.usuario_label = QLabel("Usuario:")
         self.usuario_input = QLineEdit()
@@ -29,6 +32,13 @@ class VentanaInicioSesion(QWidget):
 
         self.iniciar_sesion_button.clicked.connect(self.iniciar_sesion)
 
+        # Cargar las credenciales almacenadas
+        self.credenciales = self.cargar_credenciales()
+        if self.credenciales:
+            self.usuario_input.setText(self.credenciales["usuario"])
+            self.contrasena_input.setText(self.credenciales["contrasena"])
+            self.recordar_checkbox.setChecked(True)
+
     def iniciar_sesion(self):
         usuario = self.usuario_input.text()
         contrasena = self.contrasena_input.text()
@@ -36,35 +46,40 @@ class VentanaInicioSesion(QWidget):
         # Verificar el usuario y la contraseña
         if usuario == "estudiocristalli" and contrasena == "bacacay1197":
             if self.recordar_checkbox.isChecked():
-                # Guardar el usuario y la contraseña en la base de datos
-                guardar_credenciales(usuario, contrasena)
+                # Guardar el usuario y la contraseña
+                self.guardar_credenciales(usuario, contrasena)
+            else:
+                # Eliminar las credenciales almacenadas
+                self.eliminar_credenciales()
 
             # Abrir la siguiente ventana o realizar las acciones necesarias después del inicio de sesión exitoso
             QMessageBox.information(self, "Inicio de Sesión", "Inicio de sesión exitoso")
         else:
             QMessageBox.warning(self, "Inicio de Sesión", "Usuario o contraseña incorrectos")
 
-def guardar_credenciales(usuario, contrasena):
-    # Conexión a la base de datos
-    conexion = sqlite3.connect("datos_usuarios.db")
-    cursor = conexion.cursor()
+    def guardar_credenciales(self, usuario, contrasena):
+        credenciales = {
+            "usuario": usuario,
+            "contrasena": contrasena
+        }
 
-    # Crear la tabla si no existe
-    cursor.execute("CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT, contrasena TEXT)")
+        with open("credenciales.json", "w") as archivo:
+            json.dump(credenciales, archivo)
 
-    # Verificar si el usuario ya existe en la base de datos
-    cursor.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,))
-    resultado = cursor.fetchone()
-    if resultado:
-        # Actualizar el registro existente
-        cursor.execute("UPDATE usuarios SET contrasena=? WHERE usuario=?", (contrasena, usuario))
-    else:
-        # Insertar un nuevo registro
-        cursor.execute("INSERT INTO usuarios VALUES (?, ?)", (usuario, contrasena))
+    def cargar_credenciales(self):
+        try:
+            with open("credenciales.json", "r") as archivo:
+                credenciales = json.load(archivo)
+                return credenciales
+        except FileNotFoundError:
+            return None
 
-    # Guardar los cambios y cerrar la conexión
-    conexion.commit()
-    conexion.close()
+    def eliminar_credenciales(self):
+        try:
+            with open("credenciales.json", "w") as archivo:
+                archivo.write("")
+        except FileNotFoundError:
+            pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
