@@ -1,6 +1,7 @@
 import sys
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtGui import QIcon, QPixmap
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
@@ -253,6 +254,7 @@ app = QtWidgets.QApplication(sys.argv)
 ventana = QtWidgets.QWidget()
 ventana.setWindowTitle("Liquidación de Sueldos")
 ventana.setGeometry(100, 100, 500, 500)
+
 
 # Crear los componentes de la interfaz gráfica
 etiqueta_nombre = QtWidgets.QLabel("Nombre:")

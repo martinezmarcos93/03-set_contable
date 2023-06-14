@@ -1,5 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLineEdit, QLabel, QComboBox
+from PyQt5.QtGui import QIcon, QPixmap
 
 
 class VentanaCalculadoras(QMainWindow):
@@ -7,6 +8,7 @@ class VentanaCalculadoras(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadoras")
         self.setGeometry(100, 100, 300, 200)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         # Botón "Calculadora de netos"
         btn_netos = QPushButton("Calculadora de Netos", self)
