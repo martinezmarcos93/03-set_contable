@@ -5,7 +5,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 import sqlite3
 
 # Conexión a la base de datos SQLite
-conn = sqlite3.connect('gestoria.db')
+conn = sqlite3.connect('datos_gestoria.db')
 c = conn.cursor()
 
 # Crear tabla si no existe
@@ -57,7 +57,7 @@ class AddDataWindow(QWidget):
         tramites = self.tramites_input.text()
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('gestoria.db')
+        conn = sqlite3.connect('datos_gestoria.db')
         c = conn.cursor()
 
         # Insertar los datos en la tabla clientes_gestoria
@@ -100,7 +100,7 @@ class MainWindow(QWidget):
         self.load_data()
 
     def load_data(self):
-        conn = sqlite3.connect('gestoria.db')
+        conn = sqlite3.connect('datos_gestoria.db')
         c = conn.cursor()
         c.execute('SELECT * FROM clientes_gestoria')
         data = c.fetchall()
@@ -131,7 +131,7 @@ class MainWindow(QWidget):
         data = [item.text() for item in selected_items]
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('gestoria.db')
+        conn = sqlite3.connect('datos_gestoria.db')
         c = conn.cursor()
 
         # Modificar los datos en la tabla clientes_gestoria
@@ -153,7 +153,7 @@ class MainWindow(QWidget):
         data = [self.table.item(selected_row, column_index).text() for column_index in range(self.table.columnCount())]
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('gestoria.db')
+        conn = sqlite3.connect('datos_gestoria.db')
         c = conn.cursor()
 
         # Eliminar los datos de la tabla clientes_gestoria
