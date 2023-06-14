@@ -2,7 +2,7 @@ from M1login import VentanaInicioSesion
 from M2SelectClient import VentanaTipoCliente
 from M3TablaMono import MainWindow
 from M4TablaResp import MainWindowRI
-from M5Calculadoras import VentanaCalculadoras
+from M6Calculadoras import VentanaCalculadoras
 # from M6LiquidadorSueldos import VentanaLiquidadorSueldos
 from PyQt5.QtWidgets import QApplication
 
