@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, \
-    QPushButton, QMessageBox, QLabel, QLineEdit, QGridLayout
+    QPushButton, QMessageBox, QLabel, QLineEdit, QGridLayout, QHeaderView
 from PyQt5.QtCore import Qt
 import sqlite3
 
@@ -99,6 +99,10 @@ class MainWindowRI(QWidget):
 
         self.delete_button = QPushButton('Eliminar', self)
         self.delete_button.clicked.connect(self.delete_data)
+        
+                 # Ajustar el tamaño de las columnas según el contenido
+        self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         layout = QVBoxLayout()
         layout.addWidget(self.table)
