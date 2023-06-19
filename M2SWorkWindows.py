@@ -7,7 +7,7 @@ class VentanaTipoCliente(QWidget):
         super().__init__()
         self.setWindowTitle("Ventana de trabajo")
         self.setGeometry(200, 200, 400, 200)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.monotributistas_button = QPushButton("Panel de Monotributistas")
         self.responsables_button = QPushButton("Panel de Responsables Inscriptos")

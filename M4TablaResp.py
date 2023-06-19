@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTableWidget, QT
 from PyQt5.QtCore import Qt
 import sqlite3
 
-conn = sqlite3.connect('datos_resp.db')
+conn = sqlite3.connect('Data\datos_resp.db')
 c = conn.cursor()
 
 c.execute('''CREATE TABLE IF NOT EXISTS estudio_contable_responsables_inscriptos
@@ -67,7 +67,7 @@ class AddDataWindow(QWidget):
         cel = self.cel_input.text()
         mail = self.mail_input.text()
 
-        conn = sqlite3.connect('datos_resp.db')
+        conn = sqlite3.connect('Data\datos_resp.db')
         c = conn.cursor()
 
         c.execute(f'INSERT INTO {self.table_name} VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -114,7 +114,7 @@ class MainWindowRI(QWidget):
         self.load_data()
 
     def load_data(self):
-        conn = sqlite3.connect('datos_resp.db')
+        conn = sqlite3.connect('Data\datos_resp.db')
         c = conn.cursor()
         c.execute(f'SELECT * FROM {self.table_name}')
         data = c.fetchall()
@@ -138,7 +138,7 @@ class MainWindowRI(QWidget):
 
         data = [item.text() for item in selected_items]
 
-        conn = sqlite3.connect('datos_resp.db')
+        conn = sqlite3.connect('Data\datos_resp.db')
         c = conn.cursor()
         c.execute(f'UPDATE {self.table_name} SET RAZON_SOCIAL = ?, CUIT = ?, CLAVE_AFIP = ?, CLAVE_IIBB = ?, CLAVE_CABA = ?, CEL = ?, MAIL = ? WHERE CUIT = ?',
                   (data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[1]))
@@ -158,7 +158,7 @@ class MainWindowRI(QWidget):
         reply = QMessageBox.question(self, 'Eliminar', '¿Estás seguro de que quieres eliminar este cliente?',
                                       QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            conn = sqlite3.connect('datos_resp.db')
+            conn = sqlite3.connect('Data\datos_resp.db')
             c = conn.cursor()
             c.execute(f'DELETE FROM {self.table_name} WHERE CUIT = ?', (data[1],))
             conn.commit()

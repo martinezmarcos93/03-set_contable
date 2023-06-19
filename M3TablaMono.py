@@ -5,7 +5,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 import sqlite3
 
 # Conexión a la base de datos SQLite
-conn = sqlite3.connect('datos_monot.db')
+conn = sqlite3.connect('Data\datos_monot.db')
 c = conn.cursor()
 
 # Crear tabla si no existe
@@ -21,7 +21,7 @@ class AddDataWindow(QWidget):
         self.parent = parent
         self.setWindowTitle('Añadir Datos')
         self.setGeometry(100, 100, 300, 400)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.cliente_label = QLabel('Cliente:', self)
         self.cliente_input = QLineEdit(self)
@@ -94,7 +94,7 @@ class AddDataWindow(QWidget):
         otros = self.otros_input.text()
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('datos_monot.db')
+        conn = sqlite3.connect('Data\datos_monot.db')
         c = conn.cursor()
 
         # Insertar los datos en la tabla monotributistas
@@ -111,7 +111,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle('Estudio Contable - Monotributistas')
         self.setGeometry(500, 100, 1000, 900)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.table = QTableWidget(self)
         self.table.setColumnCount(10)
@@ -142,7 +142,7 @@ class MainWindow(QWidget):
         self.load_data()
 
     def load_data(self):
-        conn = sqlite3.connect('datos_monot.db')
+        conn = sqlite3.connect('Data\datos_monot.db')
         c = conn.cursor()
         c.execute('SELECT * FROM monotributistas')
         data = c.fetchall()
@@ -173,7 +173,7 @@ class MainWindow(QWidget):
         data = [item.text() for item in selected_items]
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('datos_monot.db')
+        conn = sqlite3.connect('Data\datos_monot.db')
         c = conn.cursor()
 
         # Modificar los datos en la tabla monotributistas
@@ -196,7 +196,7 @@ class MainWindow(QWidget):
         data = [self.table.item(selected_row, column_index).text() for column_index in range(self.table.columnCount())]
 
         # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('datos_monot.db')
+        conn = sqlite3.connect('Data\datos_monot.db')
         c = conn.cursor()
 
         # Eliminar los datos de la tabla monotributistas

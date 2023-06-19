@@ -9,7 +9,7 @@ class VentanaCalculadoras(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadoras")
         self.setGeometry(100, 100, 300, 200)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         # Botón "Calculadora de netos"
         btn_netos = QPushButton("Calculadora de Netos", self)
@@ -44,7 +44,7 @@ class VentanaNetos(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadora de Netos")
         self.setGeometry(200, 200, 300, 200)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.lbl_percepcion = QLabel("Cantidad percibida:", self)
         self.lbl_percepcion.setGeometry(20, 20, 120, 30)
@@ -78,7 +78,7 @@ class VentanaIVA(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadora de IVA")
         self.setGeometry(300, 300, 400, 350)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.lbl_neto = QLabel("Neto:", self)
         self.lbl_neto.setGeometry(20, 20, 80, 30)
@@ -133,7 +133,7 @@ class VentanaPorcentaje(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadora de Porcentaje")
         self.setGeometry(200, 200, 300, 250)
-        self.setWindowIcon(QIcon("logo1.jpg"))
+        self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
         self.lbl_valor_x = QLabel("Porcentaje:", self)
         self.lbl_valor_x.setGeometry(20, 20, 80, 30)
