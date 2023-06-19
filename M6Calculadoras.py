@@ -135,29 +135,23 @@ class VentanaPorcentaje(QMainWindow):
         self.setGeometry(200, 200, 300, 250)
         self.setWindowIcon(QIcon("Data\logo1.jpg"))
 
-        self.lbl_valor_x = QLabel("Porcentaje:", self)
+        self.lbl_valor_x = QLabel("X Porcentaje:", self)
         self.lbl_valor_x.setGeometry(20, 20, 80, 30)
         self.txt_valor_x = QLineEdit(self)
         self.txt_valor_x.setGeometry(120, 20, 150, 30)
 
-        self.lbl_valor_y = QLabel("Numero:", self)
+        self.lbl_valor_y = QLabel("Numero X:", self)
         self.lbl_valor_y.setGeometry(20, 70, 80, 30)
         self.txt_valor_y = QLineEdit(self)
         self.txt_valor_y.setGeometry(120, 70, 150, 30)
 
-        self.btn_porcentaje_x = QPushButton("Calcular % de X", self)
+        self.btn_porcentaje_x = QPushButton("Calcular X % de X", self)
         self.btn_porcentaje_x.setGeometry(20, 120, 250, 30)
         self.btn_porcentaje_x.clicked.connect(self.calcular_porcentaje_x)
-
-        self.btn_porcentaje_y = QPushButton("Calcular % de Y", self)
-        self.btn_porcentaje_y.setGeometry(20, 170, 250, 30)
-        self.btn_porcentaje_y.clicked.connect(self.calcular_porcentaje_y)
 
         self.lbl_resultado_x = QLabel("", self)
         self.lbl_resultado_x.setGeometry(20, 220, 260, 30)
 
-        self.lbl_resultado_y = QLabel("", self)
-        self.lbl_resultado_y.setGeometry(20, 270, 260, 30)
 
     def calcular_porcentaje_x(self):
         valor_x = float(self.txt_valor_x.text())
@@ -167,13 +161,7 @@ class VentanaPorcentaje(QMainWindow):
 
         self.lbl_resultado_x.setText(f"El {porcentaje_x:.2f}% de {valor_y} es: {valor_x}")
 
-    def calcular_porcentaje_y(self):
-        valor_x = float(self.txt_valor_x.text())
-        valor_y = float(self.txt_valor_y.text())
 
-        porcentaje_y = (valor_y * 100) / valor_x
-
-        self.lbl_resultado_y.setText(f"El {porcentaje_y:.2f}% de {valor_x} es: {valor_y}")
 
 
 if __name__ == "__main__":
