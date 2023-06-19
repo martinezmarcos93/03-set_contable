@@ -89,6 +89,7 @@ class MainWindowRI(QWidget):
 
         self.table = QTableWidget(self)
         self.table.setColumnCount(7)
+        self.table.setRowCount(100)
         self.table.setHorizontalHeaderLabels(['RAZON SOCIAL', 'CUIT', 'CLAVE AFIP', 'CLAVE IIBB', 'CLAVE CABA', 'CEL', 'MAIL'])
 
         self.add_button = QPushButton('Añadir', self)
@@ -118,7 +119,6 @@ class MainWindowRI(QWidget):
         c = conn.cursor()
         c.execute(f'SELECT * FROM {self.table_name}')
         data = c.fetchall()
-        self.table.setRowCount(len(data))
         for row_index, row_data in enumerate(data):
             for column_index, item in enumerate(row_data):
                 cell_item = QTableWidgetItem(item)
