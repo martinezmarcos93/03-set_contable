@@ -1,5 +1,5 @@
 from M1login import VentanaInicioSesion
-from M2SelectClient import VentanaTipoCliente
+from M2SWorkWindows import VentanaTipoCliente
 from M3TablaMono import MainWindow
 from M4TablaResp import MainWindowRI
 from M6Calculadoras import VentanaCalculadoras
