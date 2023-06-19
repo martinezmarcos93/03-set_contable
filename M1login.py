@@ -5,6 +5,8 @@ from PyQt6.QtGui import QIcon, QPixmap
 import json
 from M2SWorkWindows import VentanaTipoCliente
 
+
+
 class VentanaInicioSesion(QWidget):
     def __init__(self):
         super().__init__()
@@ -65,6 +67,16 @@ class VentanaInicioSesion(QWidget):
             self.show_successful_login_dialog()
         else:
             QMessageBox.warning(self, "Inicio de Sesión", "Usuario o contraseña incorrectos")
+    
+    def show_successful_login_dialog(self):
+        dialog = SuccessfulLoginDialog()
+        dialog.accepted.connect(self.open_work_window)
+        dialog.exec_()
+
+    def open_work_window(self):
+        self.work_window = VentanaTipoCliente()
+        self.work_window.show()
+        self.close()
 
     def guardar_credenciales(self, usuario, contrasena):
         credenciales = {
@@ -72,12 +84,12 @@ class VentanaInicioSesion(QWidget):
             "contrasena": contrasena
         }
 
-        with open("credenciales.json", "w") as archivo:
+        with open("Data\credenciales.json", "w") as archivo:
             json.dump(credenciales, archivo)
 
     def cargar_credenciales(self):
         try:
-            with open("credenciales.json", "r") as archivo:
+            with open("Data\credenciales.json", "r") as archivo:
                 credenciales = json.load(archivo)
                 return credenciales
         except FileNotFoundError:
@@ -85,7 +97,7 @@ class VentanaInicioSesion(QWidget):
 
     def eliminar_credenciales(self):
         try:
-            with open("credenciales.json", "w") as archivo:
+            with open("Data\credenciales.json", "w") as archivo:
                 archivo.write("")
         except FileNotFoundError:
             pass
@@ -96,16 +108,6 @@ class SuccessfulLoginDialog(QMessageBox):
         self.setWindowTitle("Inicio de Sesión Exitoso")
         self.setText("Inicio de sesión exitoso")
         self.addButton(QMessageBox.StandardButton.Ok)
-        
-    def show_successful_login_dialog(self):
-        dialog = SuccessfulLoginDialog()
-        dialog.accepted.connect(self.open_work_window)
-        dialog.exec_()
-
-    def open_work_window(self):
-        self.work_window = VentanaTipoCliente()
-        self.work_window.show()
-        self.close()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
