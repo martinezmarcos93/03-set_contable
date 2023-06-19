@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLineEdit, QLabel, QComboBox
 from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import Qt
 
 
 class VentanaCalculadoras(QMainWindow):
@@ -43,6 +44,7 @@ class VentanaNetos(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadora de Netos")
         self.setGeometry(200, 200, 300, 200)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         self.lbl_percepcion = QLabel("Cantidad percibida:", self)
         self.lbl_percepcion.setGeometry(20, 20, 120, 30)
@@ -67,14 +69,16 @@ class VentanaNetos(QMainWindow):
 
         x = (percepcion * 100) / alicuota
 
-        self.lbl_resultado.setText(f"El neto de la percepcion es: {x}")
+        resultado = f"El neto de la percepcion es: {x:.2f}"
+        self.lbl_resultado.setText(resultado)
 
 
 class VentanaIVA(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Calculadora de IVA")
-        self.setGeometry(200, 200, 300, 250)
+        self.setGeometry(300, 300, 400, 350)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
         self.lbl_neto = QLabel("Neto:", self)
         self.lbl_neto.setGeometry(20, 20, 80, 30)
@@ -106,8 +110,8 @@ class VentanaIVA(QMainWindow):
         iva_calculado = (neto * iva) / 100
         total = neto + iva_calculado
 
-        resultado_iva = f"IVA ({iva}%): {iva_calculado}"
-        resultado_total = f"Total: {total}"
+        resultado_iva = f"IVA ({iva}%): {iva_calculado:.2f}"
+        resultado_total = f"Total: {total:.2f}"
 
         self.lbl_resultados.setText(f"{resultado_iva}\n{resultado_total}")
 
@@ -118,8 +122,8 @@ class VentanaIVA(QMainWindow):
         neto_calculado = total / (1 + (iva / 100))
         iva_calculado = total - neto_calculado
 
-        resultado_neto = f"Neto: {neto_calculado}"
-        resultado_iva = f"IVA ({iva}%): {iva_calculado}"
+        resultado_neto = f"Neto: {neto_calculado:.2f}"
+        resultado_iva = f"IVA ({iva}%): {iva_calculado:.2f}"
 
         self.lbl_resultados.setText(f"{resultado_neto}\n{resultado_iva}")
 
@@ -129,13 +133,14 @@ class VentanaPorcentaje(QMainWindow):
         super().__init__()
         self.setWindowTitle("Calculadora de Porcentaje")
         self.setGeometry(200, 200, 300, 250)
+        self.setWindowIcon(QIcon("logo1.jpg"))
 
-        self.lbl_valor_x = QLabel("Valor X:", self)
+        self.lbl_valor_x = QLabel("Porcentaje:", self)
         self.lbl_valor_x.setGeometry(20, 20, 80, 30)
         self.txt_valor_x = QLineEdit(self)
         self.txt_valor_x.setGeometry(120, 20, 150, 30)
 
-        self.lbl_valor_y = QLabel("Valor Y:", self)
+        self.lbl_valor_y = QLabel("Numero:", self)
         self.lbl_valor_y.setGeometry(20, 70, 80, 30)
         self.txt_valor_y = QLineEdit(self)
         self.txt_valor_y.setGeometry(120, 70, 150, 30)
@@ -160,7 +165,7 @@ class VentanaPorcentaje(QMainWindow):
 
         porcentaje_x = (valor_x * 100) / valor_y
 
-        self.lbl_resultado_x.setText(f"El {porcentaje_x}% de {valor_y} es: {valor_x}")
+        self.lbl_resultado_x.setText(f"El {porcentaje_x:.2f}% de {valor_y} es: {valor_x}")
 
     def calcular_porcentaje_y(self):
         valor_x = float(self.txt_valor_x.text())
@@ -168,7 +173,7 @@ class VentanaPorcentaje(QMainWindow):
 
         porcentaje_y = (valor_y * 100) / valor_x
 
-        self.lbl_resultado_y.setText(f"El {porcentaje_y}% de {valor_x} es: {valor_y}")
+        self.lbl_resultado_y.setText(f"El {porcentaje_y:.2f}% de {valor_x} es: {valor_y}")
 
 
 if __name__ == "__main__":
