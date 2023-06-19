@@ -24,7 +24,7 @@ class VentanaLiquidadorSueldos():
         remunerativo = float(entrada_remunerativo.text())
 
         # Crear el documento PDF
-        pdf_filename = 'liquidacion_sueldo.pdf'
+        pdf_filename = 'Data\liquidacion_sueldo.pdf'
         pdf_canvas = canvas.Canvas(pdf_filename, pagesize=letter)
 
         # Dibujar el encabezado
