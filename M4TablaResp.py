@@ -2,18 +2,31 @@ import sys
 import os
 import sqlite3
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QGridLayout, QTableWidget,
-    QTableWidgetItem, QPushButton, QMessageBox, QLabel, QLineEdit, QHeaderView
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QTableWidget, QTableWidgetItem, QPushButton, QMessageBox,
+    QLabel, QLineEdit, QHeaderView, QComboBox, QCheckBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QColor
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
-DB_PATH = os.path.join(DATA_DIR, "datos_resp.db")
+DATA_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
+DB_PATH   = os.path.join(DATA_DIR, "datos_resp.db")
 LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
-COLUMNAS = ['RAZON SOCIAL', 'CUIT', 'CLAVE AFIP', 'CLAVE IIBB', 'CLAVE CABA', 'CEL', 'MAIL']
-FIELDS_DB = ['RAZON_SOCIAL', 'CUIT', 'CLAVE_AFIP', 'CLAVE_IIBB', 'CLAVE_CABA', 'CEL', 'MAIL']
+TABLE_NAME = "responsables_inscriptos"
+
+COLS_DISPLAY = [
+    "Rev.", "Razón Social", "CUIT", "Clave ARCA",
+    "Clave ARBA", "Clave AGIP", "Condición IIBB", "Observaciones"
+]
+CONDICIONES_IIBB = ["Contribuyente", "Convenio Multilateral", "Exento", "No inscripto"]
+CONDICIONES_GRAL = ["Activo", "Baja", "Suspendido"]
+
+COLORES = {
+    "Activo":    "#ccffcc",
+    "Baja":      "#ffcccc",
+    "Suspendido":"#fff3cc",
+}
 
 
 def get_conn():
@@ -21,131 +34,296 @@ def get_conn():
     return sqlite3.connect(DB_PATH)
 
 
-def init_db(table_name: str):
+def init_db():
     with get_conn() as conn:
-        conn.execute(f'''CREATE TABLE IF NOT EXISTS {table_name}
-            (RAZON_SOCIAL TEXT, CUIT TEXT, CLAVE_AFIP TEXT,
-             CLAVE_IIBB TEXT, CLAVE_CABA TEXT, CEL TEXT, MAIL TEXT)''')
+        conn.execute(f'''CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            revision      INTEGER DEFAULT 0,
+            razon_social  TEXT,
+            cuit          TEXT,
+            clave_arca    TEXT,
+            clave_arba    TEXT,
+            clave_agip    TEXT,
+            condicion_iibb TEXT,
+            observaciones TEXT,
+            condicion     TEXT DEFAULT 'Activo'
+        )''')
 
 
-class AddDataWindow(QWidget):
-    def __init__(self, parent, table_name: str):
+class FormDialog(QWidget):
+    def __init__(self, parent_window, row_data=None, row_id=None):
         super().__init__()
-        self.parent_window = parent
-        self.table_name = table_name
-        self.setWindowTitle("Agregar Responsable Inscripto")
-        self.setGeometry(400, 150, 380, 320)
+        self.parent_window = parent_window
+        self.row_id = row_id
+        is_edit = row_data is not None
+        self.setWindowTitle("Editar cliente" if is_edit else "Agregar cliente")
+        self.setMinimumWidth(400)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.inputs = {}
-        layout = QGridLayout()
+        # Centrar
+        from PyQt6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.resize(420, 400)
+        self.move(screen.center().x() - 210, screen.center().y() - 200)
 
-        for i, (col_display, field) in enumerate(zip(COLUMNAS, FIELDS_DB)):
-            layout.addWidget(QLabel(f"{col_display}:"), i, 0)
-            inp = QLineEdit()
-            self.inputs[field] = inp
-            layout.addWidget(inp, i, 1)
+        grid = QGridLayout()
+        self.fields = {}
 
-        self.save_button = QPushButton("Guardar")
-        self.save_button.clicked.connect(self._save_data)
-        layout.addWidget(self.save_button, len(COLUMNAS), 0, 1, 2)
-        self.setLayout(layout)
+        text_fields = [
+            ("Razón Social", "razon_social"),
+            ("CUIT",         "cuit"),
+            ("Clave ARCA",   "clave_arca"),
+            ("Clave ARBA",   "clave_arba"),
+            ("Clave AGIP",   "clave_agip"),
+        ]
+        for i, (lbl, key) in enumerate(text_fields):
+            grid.addWidget(QLabel(f"{lbl}:"), i, 0)
+            w = QLineEdit()
+            self.fields[key] = w
+            grid.addWidget(w, i, 1)
 
-    def _save_data(self):
-        values = [self.inputs[f].text() for f in FIELDS_DB]
+        # Condición IIBB
+        r = len(text_fields)
+        grid.addWidget(QLabel("Condición IIBB:"), r, 0)
+        self.combo_iibb = QComboBox()
+        self.combo_iibb.addItems(CONDICIONES_IIBB)
+        grid.addWidget(self.combo_iibb, r, 1)
+
+        # Observaciones
+        grid.addWidget(QLabel("Observaciones:"), r+1, 0, Qt.AlignmentFlag.AlignTop)
+        self.txt_obs = QTextEdit()
+        self.txt_obs.setFixedHeight(60)
+        grid.addWidget(self.txt_obs, r+1, 1)
+
+        # Condición general
+        grid.addWidget(QLabel("Estado:"), r+2, 0)
+        self.combo_cond = QComboBox()
+        self.combo_cond.addItems(CONDICIONES_GRAL)
+        grid.addWidget(self.combo_cond, r+2, 1)
+
+        # Revisión
+        self.chk_rev = QCheckBox("Marcado para revisión")
+        grid.addWidget(self.chk_rev, r+3, 0, 1, 2)
+
+        btn = QPushButton("Guardar")
+        btn.clicked.connect(self._guardar)
+        grid.addWidget(btn, r+4, 0, 1, 2)
+
+        grid.setContentsMargins(16, 16, 16, 16)
+        grid.setVerticalSpacing(8)
+        self.setLayout(grid)
+
+        if is_edit:
+            # (id, revision, razon_social, cuit, clave_arca, clave_arba,
+            #  clave_agip, condicion_iibb, observaciones, condicion)
+            _, rev, rs, cuit, arca, arba, agip, c_iibb, obs, cond = row_data
+            self.fields["razon_social"].setText(rs or "")
+            self.fields["cuit"].setText(cuit or "")
+            self.fields["clave_arca"].setText(arca or "")
+            self.fields["clave_arba"].setText(arba or "")
+            self.fields["clave_agip"].setText(agip or "")
+            idx = self.combo_iibb.findText(c_iibb or "")
+            if idx >= 0: self.combo_iibb.setCurrentIndex(idx)
+            self.txt_obs.setPlainText(obs or "")
+            idx2 = self.combo_cond.findText(cond or "")
+            if idx2 >= 0: self.combo_cond.setCurrentIndex(idx2)
+            self.chk_rev.setChecked(bool(rev))
+
+    def _guardar(self):
+        rs   = self.fields["razon_social"].text().strip()
+        cuit = self.fields["cuit"].text().strip()
+        arca = self.fields["clave_arca"].text().strip()
+        arba = self.fields["clave_arba"].text().strip()
+        agip = self.fields["clave_agip"].text().strip()
+        c_iibb = self.combo_iibb.currentText()
+        obs    = self.txt_obs.toPlainText().strip()
+        cond   = self.combo_cond.currentText()
+        rev    = 1 if self.chk_rev.isChecked() else 0
+
         with get_conn() as conn:
-            conn.execute(
-                f'INSERT INTO {self.table_name} VALUES (?,?,?,?,?,?,?)',
-                values
-            )
+            if self.row_id is None:
+                conn.execute(
+                    f'''INSERT INTO {TABLE_NAME}
+                        (revision,razon_social,cuit,clave_arca,clave_arba,
+                         clave_agip,condicion_iibb,observaciones,condicion)
+                        VALUES (?,?,?,?,?,?,?,?,?)''',
+                    (rev, rs, cuit, arca, arba, agip, c_iibb, obs, cond)
+                )
+            else:
+                conn.execute(
+                    f'''UPDATE {TABLE_NAME} SET
+                        revision=?,razon_social=?,cuit=?,clave_arca=?,clave_arba=?,
+                        clave_agip=?,condicion_iibb=?,observaciones=?,condicion=?
+                        WHERE id=?''',
+                    (rev, rs, cuit, arca, arba, agip, c_iibb, obs, cond, self.row_id)
+                )
         self.parent_window.load_data()
         self.close()
 
 
 class MainWindowRI(QWidget):
-    def __init__(self, table_name: str, window_title: str):
+    def __init__(self, table_name=TABLE_NAME, window_title="Responsables Inscriptos — MMAC"):
         super().__init__()
-        self.table_name = table_name
-        init_db(table_name)
+        init_db()
         self.setWindowTitle(window_title)
-        self.setGeometry(500, 100, 800, 700)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.table = QTableWidget()
-        self.table.setColumnCount(len(COLUMNAS))
-        self.table.setHorizontalHeaderLabels(COLUMNAS)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        # Centrar
+        from PyQt6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.resize(1100, 700)
+        self.move(
+            screen.center().x() - self.width() // 2,
+            screen.center().y() - self.height() // 2
+        )
 
-        self.add_button = QPushButton("Añadir")
-        self.modify_button = QPushButton("Guardar cambios")
-        self.delete_button = QPushButton("Eliminar")
+        # Barra búsqueda
+        search_bar = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Buscar por razón social o CUIT...")
+        self.search_input.textChanged.connect(self.load_data)
+        search_bar.addWidget(QLabel("Buscar:"))
+        search_bar.addWidget(self.search_input)
+
+        self.combo_filtro = QComboBox()
+        self.combo_filtro.addItems(["Todos"] + CONDICIONES_GRAL)
+        self.combo_filtro.currentTextChanged.connect(self.load_data)
+        search_bar.addWidget(QLabel("Estado:"))
+        search_bar.addWidget(self.combo_filtro)
+
+        # Tabla
+        self.table = QTableWidget()
+        self.table.setColumnCount(len(COLS_DISPLAY))
+        self.table.setHorizontalHeaderLabels(COLS_DISPLAY)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.doubleClicked.connect(self._abrir_detalle)
+
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_add    = QPushButton("+ Agregar")
+        self.btn_edit   = QPushButton("Editar datos")
+        self.btn_detail = QPushButton("Ver detalle / CC")
+        self.btn_detail.setStyleSheet(
+            "background:#1a5276; color:white; padding:5px 10px; border-radius:4px;"
+        )
+        self.btn_delete = QPushButton("Eliminar")
+        for b in (self.btn_add, self.btn_edit, self.btn_detail, self.btn_delete):
+            btn_layout.addWidget(b)
+
+        self.btn_add.clicked.connect(self._agregar)
+        self.btn_edit.clicked.connect(self._editar)
+        self.btn_detail.clicked.connect(self._abrir_detalle)
+        self.btn_delete.clicked.connect(self._eliminar)
+
+        lbl_hint = QLabel("  Doble clic en una fila para abrir detalle y cuenta corriente")
+        lbl_hint.setStyleSheet("color: gray; font-size: 11px;")
 
         layout = QVBoxLayout()
+        layout.addLayout(search_bar)
         layout.addWidget(self.table)
-        layout.addWidget(self.add_button)
-        layout.addWidget(self.modify_button)
-        layout.addWidget(self.delete_button)
+        layout.addWidget(lbl_hint)
+        layout.addLayout(btn_layout)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
-        self.add_button.clicked.connect(self._add_data)
-        self.modify_button.clicked.connect(self._modify_data)
-        self.delete_button.clicked.connect(self._delete_data)
-
+        self._row_ids = []
         self.load_data()
 
     def load_data(self):
+        q      = self.search_input.text().strip().lower()
+        filtro = self.combo_filtro.currentText()
+
         with get_conn() as conn:
-            rows = conn.execute(f'SELECT * FROM {self.table_name}').fetchall()
+            rows = conn.execute(
+                f'SELECT * FROM {TABLE_NAME} ORDER BY razon_social'
+            ).fetchall()
+
+        if q:
+            rows = [r for r in rows if
+                    q in (r[2] or "").lower() or
+                    q in (r[3] or "").lower()]
+        if filtro != "Todos":
+            rows = [r for r in rows if (r[9] or "") == filtro]
+
+        self._row_ids = [r[0] for r in rows]
         self.table.setRowCount(len(rows))
+
         for r_i, row in enumerate(rows):
-            for c_i, val in enumerate(row):
-                item = QTableWidgetItem(str(val) if val else "")
+            # (id, revision, razon_social, cuit, clave_arca, clave_arba,
+            #  clave_agip, condicion_iibb, observaciones, condicion)
+            display_vals = [
+                "✔" if row[1] else "",
+                row[2] or "", row[3] or "", row[4] or "",
+                row[5] or "", row[6] or "", row[7] or "",
+                row[8] or "",
+            ]
+            color = COLORES.get(row[9] or "", "#ffffff")
+            for c_i, val in enumerate(display_vals):
+                item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setBackground(QColor(color))
                 self.table.setItem(r_i, c_i, item)
 
-    def _add_data(self):
-        self._add_window = AddDataWindow(self, self.table_name)
-        self._add_window.show()
-
-    def _modify_data(self):
+    def _get_selected_id(self):
         row = self.table.currentRow()
-        if row < 0:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila para modificar.")
-            return
-        data = [self.table.item(row, c).text() for c in range(self.table.columnCount())]
+        if row < 0 or row >= len(self._row_ids):
+            return None, None
+        return row, self._row_ids[row]
+
+    def _get_row_data(self, row_id):
         with get_conn() as conn:
-            conn.execute(
-                f'''UPDATE {self.table_name}
-                    SET RAZON_SOCIAL=?,CUIT=?,CLAVE_AFIP=?,CLAVE_IIBB=?,CLAVE_CABA=?,CEL=?,MAIL=?
-                    WHERE CUIT=?''',
-                data + [data[1]]
-            )
-        self.load_data()
+            return conn.execute(
+                f'SELECT * FROM {TABLE_NAME} WHERE id=?', (row_id,)
+            ).fetchone()
 
-    def _delete_data(self):
-        row = self.table.currentRow()
-        if row < 0:
+    def _agregar(self):
+        self._form = FormDialog(self)
+        self._form.show()
+
+    def _editar(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar.")
+            return
+        data = self._get_row_data(row_id)
+        self._form = FormDialog(self, row_data=data, row_id=row_id)
+        self._form.show()
+
+    def _abrir_detalle(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila.")
+            return
+        nombre_item = self.table.item(row, 1)
+        nombre = nombre_item.text() if nombre_item else f"Cliente #{row_id}"
+        from MClienteDetalle import VentanaDetalle
+        self._detalle = VentanaDetalle(cliente_id=row_id, tipo="resp", nombre=nombre)
+        self._detalle.show()
+
+    def _eliminar(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
             QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar.")
             return
-        cuit = self.table.item(row, 1).text()
+        nombre = self.table.item(row, 1).text()
         confirm = QMessageBox.question(
-            self, "Confirmar", f"¿Eliminar el cliente con CUIT {cuit}?",
+            self, "Confirmar eliminación",
+            f"¿Eliminar a {nombre}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if confirm == QMessageBox.StandardButton.Yes:
             with get_conn() as conn:
-                conn.execute(f'DELETE FROM {self.table_name} WHERE CUIT=?', (cuit,))
+                conn.execute(f'DELETE FROM {TABLE_NAME} WHERE id=?', (row_id,))
             self.load_data()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    w = MainWindowRI(
-        'estudio_contable_responsables_inscriptos',
-        'Responsables Inscriptos — MMAC'
-    )
+    w = MainWindowRI()
     w.show()
     sys.exit(app.exec())

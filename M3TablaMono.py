@@ -7,11 +7,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QGridLayout, QHeaderView, QCheckBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
-# ── CORRECCIÓN: QColor importado al inicio del módulo, no con __import__
-# dinámico dentro del loop de load_data(). El import dinámico repetido
-# causaba lentitud extrema y en algunos entornos PyQt6 fallaba silenciosamente,
-# dejando la tabla sin colores o lanzando excepciones ocultas.
-from PyQt6.QtGui import QIcon, QColor
+from PyQt6.QtGui import QIcon
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
 DB_PATH   = os.path.join(DATA_DIR, "datos_monot.db")
@@ -27,17 +23,7 @@ COLS_DB = [
     "clave_afip", "clave_agip_arba", "iibb",
     "observaciones", "condicion"
 ]
-
 CONDICIONES = ["Casual", "Mensual", "Baja"]
-
-# ── CORRECCIÓN: dict de colores definido a nivel módulo (no recreado en cada
-# llamada a load_data), usando objetos QColor instanciados una sola vez.
-COLORES_CONDICION = {
-    "Baja":    QColor("#ffcccc"),
-    "Mensual": QColor("#ccffcc"),
-    "Casual":  QColor("#ffffff"),
-}
-COLOR_DEFAULT = QColor("#ffffff")
 
 
 def get_conn():
@@ -62,9 +48,7 @@ def init_db():
         )''')
 
 
-# ─────────────────────────────────────────────────────────────
 class FormDialog(QWidget):
-    """Ventana para agregar o editar un monotributista."""
     def __init__(self, parent_window, row_data=None, row_id=None):
         super().__init__()
         self.parent_window = parent_window
@@ -99,13 +83,11 @@ class FormDialog(QWidget):
             self.fields[key] = w
             grid.addWidget(w, i, 1)
 
-        # Condición — combo
         grid.addWidget(QLabel("Condición:"), len(labels_keys), 0)
         self.combo_condicion = QComboBox()
         self.combo_condicion.addItems(CONDICIONES)
         grid.addWidget(self.combo_condicion, len(labels_keys), 1)
 
-        # Revisión — checkbox
         self.chk_revision = QCheckBox("Marcado para revisión")
         grid.addWidget(self.chk_revision, len(labels_keys) + 1, 0, 1, 2)
 
@@ -174,15 +156,22 @@ class FormDialog(QWidget):
         self.close()
 
 
-# ─────────────────────────────────────────────────────────────
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         init_db()
         self.setWindowTitle("Monotributistas — MMAC")
-        self.setGeometry(300, 80, 1100, 700)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
+
+        # Centrar en pantalla
+        from PyQt6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.resize(1100, 700)
+        self.move(
+            screen.center().x() - self.width() // 2,
+            screen.center().y() - self.height() // 2
+        )
 
         search_bar = QHBoxLayout()
         self.search_input = QLineEdit()
@@ -205,27 +194,37 @@ class MainWindow(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.doubleClicked.connect(self._editar_fila)
+        self.table.doubleClicked.connect(self._abrir_detalle)
 
         btn_layout = QHBoxLayout()
         self.btn_add    = QPushButton("+ Agregar")
-        self.btn_edit   = QPushButton("Editar")
+        self.btn_edit   = QPushButton("Editar datos")
+        self.btn_detail = QPushButton("Ver detalle / CC")
+        self.btn_detail.setStyleSheet(
+            "background:#1a5276; color:white; padding:5px 10px; border-radius:4px;"
+        )
         self.btn_delete = QPushButton("Eliminar")
-        for b in (self.btn_add, self.btn_edit, self.btn_delete):
+        for b in (self.btn_add, self.btn_edit, self.btn_detail, self.btn_delete):
             btn_layout.addWidget(b)
 
         self.btn_add.clicked.connect(self._agregar)
         self.btn_edit.clicked.connect(self._editar)
+        self.btn_detail.clicked.connect(self._abrir_detalle)
         self.btn_delete.clicked.connect(self._eliminar)
+
+        lbl_hint = QLabel("  Doble clic en una fila para abrir detalle y cuenta corriente")
+        lbl_hint.setStyleSheet("color: gray; font-size: 11px;")
 
         layout = QVBoxLayout()
         layout.addLayout(search_bar)
         layout.addWidget(self.table)
+        layout.addWidget(lbl_hint)
         layout.addLayout(btn_layout)
         layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
         self._row_ids = []
+        self._detalles = []
         self.load_data()
 
     def load_data(self):
@@ -248,27 +247,21 @@ class MainWindow(QWidget):
         self._row_ids = [r[0] for r in rows]
         self.table.setRowCount(len(rows))
 
+        COLORES = {"Baja": "#ffcccc", "Mensual": "#ccffcc", "Casual": "#ffffff"}
+
         for r_i, row in enumerate(rows):
             display_vals = [
                 "✔" if row[1] else "",
-                row[2]  or "",
-                row[3]  or "",
-                row[4]  or "",
-                row[5]  or "",
-                row[6]  or "",
-                row[7]  or "",
-                row[8]  or "",
-                row[9]  or "",
-                row[10] or "",
+                row[2] or "", row[3] or "", row[4] or "", row[5] or "",
+                row[6] or "", row[7] or "", row[8] or "",
+                row[9] or "", row[10] or "",
             ]
-            # ── CORRECCIÓN: usar el dict COLORES_CONDICION definido al inicio
-            # del módulo con objetos QColor ya instanciados, en lugar del
-            # __import__ dinámico que se ejecutaba por cada celda de cada fila.
-            color = COLORES_CONDICION.get(row[10] or "", COLOR_DEFAULT)
+            color = COLORES.get(row[10] or "", "#ffffff")
+            from PyQt6.QtGui import QColor
             for c_i, val in enumerate(display_vals):
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(color)
+                item.setBackground(QColor(color))
                 self.table.setItem(r_i, c_i, item)
 
     def _get_selected_id(self):
@@ -292,17 +285,20 @@ class MainWindow(QWidget):
         if row_id is None:
             QMessageBox.warning(self, "Error", "Seleccioná una fila para editar.")
             return
-        self._editar_por_id(row_id)
-
-    def _editar_fila(self):
-        row, row_id = self._get_selected_id()
-        if row_id is not None:
-            self._editar_por_id(row_id)
-
-    def _editar_por_id(self, row_id):
         data = self._get_row_data(row_id)
         self._form = FormDialog(self, row_data=data, row_id=row_id)
         self._form.show()
+
+    def _abrir_detalle(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila.")
+            return
+        nombre_item = self.table.item(row, 1)
+        nombre = nombre_item.text() if nombre_item else f"Cliente #{row_id}"
+        from MClienteDetalle import VentanaDetalle
+        self._detalle = VentanaDetalle(cliente_id=row_id, tipo="mono", nombre=nombre)
+        self._detalle.show()
 
     def _eliminar(self):
         row, row_id = self._get_selected_id()
