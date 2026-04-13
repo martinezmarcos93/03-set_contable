@@ -29,7 +29,8 @@ def _safe_float(text):
 
 # ══════════════════════════════════════════════════════════════
 class TabIVA(QWidget):
-    """IVA y alícuotas — calcula neto→total y total→neto."""
+    """IVA y alícuotas — calcula neto→total, total→neto,
+    percepción→neto base, y el nuevo: monto IVA → neto base."""
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
@@ -78,6 +79,32 @@ class TabIVA(QWidget):
         g2.addWidget(self.res2, 4, 0, 1, 2)
         grp2.setLayout(g2)
 
+        # ── IVA → Neto base (NUEVA FUNCIÓN) ──────────────────
+        # Caso de uso: tenés el monto del IVA discriminado en una factura
+        # y necesitás saber cuál es el neto que lo generó.
+        # Fórmula: Neto = Monto_IVA / (alícuota / 100)
+        grp_iva_neto = QGroupBox("Monto de IVA → Neto base")
+        g_in = QGridLayout()
+        g_in.addWidget(QLabel("Monto del IVA ($):"), 0, 0)
+        self.txt_iva_monto = QLineEdit()
+        self.txt_iva_monto.setPlaceholderText("Ej: 2100")
+        g_in.addWidget(self.txt_iva_monto, 0, 1)
+        g_in.addWidget(QLabel("Alícuota IVA:"), 1, 0)
+        self.combo_iva_n = QComboBox()
+        self.combo_iva_n.addItems(["21%", "27%", "10.5%", "Otro..."])
+        self.combo_iva_n.currentTextChanged.connect(self._toggle_otro_iva_n)
+        g_in.addWidget(self.combo_iva_n, 1, 1)
+        self.txt_otro_iva_n = QLineEdit()
+        self.txt_otro_iva_n.setPlaceholderText("% personalizado")
+        self.txt_otro_iva_n.hide()
+        g_in.addWidget(self.txt_otro_iva_n, 2, 1)
+        btn_in = QPushButton("Calcular")
+        btn_in.clicked.connect(self._iva_a_neto)
+        g_in.addWidget(btn_in, 3, 0, 1, 2)
+        self.res_iva_neto = _resultado_label()
+        g_in.addWidget(self.res_iva_neto, 4, 0, 1, 2)
+        grp_iva_neto.setLayout(g_in)
+
         # ── Percepción → Neto ─────────────────────────────────
         grp3 = QGroupBox("Percepción → Neto base")
         g3 = QGridLayout()
@@ -96,6 +123,7 @@ class TabIVA(QWidget):
 
         layout.addWidget(grp1)
         layout.addWidget(grp2)
+        layout.addWidget(grp_iva_neto)
         layout.addWidget(grp3)
         layout.addStretch()
         self.setLayout(layout)
@@ -111,6 +139,9 @@ class TabIVA(QWidget):
 
     def _toggle_otro2(self, t):
         self.txt_otro2.setVisible(t == "Otro...")
+
+    def _toggle_otro_iva_n(self, t):
+        self.txt_otro_iva_n.setVisible(t == "Otro...")
 
     def _neto_a_total(self):
         try:
@@ -137,6 +168,26 @@ class TabIVA(QWidget):
             )
         except Exception:
             self.res2.setText("Ingresá valores numéricos válidos.")
+
+    def _iva_a_neto(self):
+        """Dado el MONTO del IVA y la alícuota, calcula el neto que lo generó.
+        Ejemplo: IVA = $2100 con alícuota 21% → Neto = 2100 / 0.21 = $10.000
+        También muestra el total (neto + IVA) como verificación."""
+        try:
+            iva_monto = _safe_float(self.txt_iva_monto.text())
+            iva = self._get_iva(self.combo_iva_n, self.txt_otro_iva_n)
+            if iva == 0:
+                self.res_iva_neto.setText("La alícuota no puede ser 0.")
+                return
+            neto  = iva_monto / (iva / 100)
+            total = neto + iva_monto
+            self.res_iva_neto.setText(
+                f"Neto base:     ${neto:,.2f}\n"
+                f"IVA ({iva}%):  ${iva_monto:,.2f}\n"
+                f"Total:         ${total:,.2f}"
+            )
+        except Exception:
+            self.res_iva_neto.setText("Ingresá valores numéricos válidos.")
 
     def _percepcion_neto(self):
         try:
@@ -187,7 +238,6 @@ class TabPorcentajes(QWidget):
                 g.addWidget(inp, i, 1)
             res = _resultado_label()
             btn = QPushButton("Calcular")
-            # closure seguro
             btn.clicked.connect(lambda checked, f=fn, ins=inputs, r=res: f(ins, r))
             g.addWidget(btn, len(labels), 0, 1, 2)
             g.addWidget(res, len(labels)+1, 0, 1, 2)
@@ -256,7 +306,7 @@ class VentanaCalculadoras(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Calculadoras — MMAC")
-        self.setGeometry(100, 100, 520, 680)
+        self.setGeometry(100, 100, 520, 780)
         self.setWindowIcon(_icon())
 
         tabs = QTabWidget()

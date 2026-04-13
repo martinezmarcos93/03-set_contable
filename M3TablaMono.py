@@ -7,13 +7,16 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QGridLayout, QHeaderView, QCheckBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+# ── CORRECCIÓN: QColor importado al inicio del módulo, no con __import__
+# dinámico dentro del loop de load_data(). El import dinámico repetido
+# causaba lentitud extrema y en algunos entornos PyQt6 fallaba silenciosamente,
+# dejando la tabla sin colores o lanzando excepciones ocultas.
+from PyQt6.QtGui import QIcon, QColor
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
 DB_PATH   = os.path.join(DATA_DIR, "datos_monot.db")
 LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
-# Columnas visibles y sus nombres en la DB
 COLS_DISPLAY = [
     "Rev.", "Nombre", "Cat", "Actividad", "CUIT",
     "Clave AFIP", "Clave Agip/Arba", "IIBB",
@@ -27,6 +30,15 @@ COLS_DB = [
 
 CONDICIONES = ["Casual", "Mensual", "Baja"]
 
+# ── CORRECCIÓN: dict de colores definido a nivel módulo (no recreado en cada
+# llamada a load_data), usando objetos QColor instanciados una sola vez.
+COLORES_CONDICION = {
+    "Baja":    QColor("#ffcccc"),
+    "Mensual": QColor("#ccffcc"),
+    "Casual":  QColor("#ffffff"),
+}
+COLOR_DEFAULT = QColor("#ffffff")
+
 
 def get_conn():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -35,18 +47,18 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
-        conn.execute(f'''CREATE TABLE IF NOT EXISTS monotributistas (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            revision      INTEGER DEFAULT 0,
-            nombre        TEXT,
-            categoria     TEXT,
-            actividad     TEXT,
-            cuit          TEXT,
-            clave_afip    TEXT,
+        conn.execute('''CREATE TABLE IF NOT EXISTS monotributistas (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            revision        INTEGER DEFAULT 0,
+            nombre          TEXT,
+            categoria       TEXT,
+            actividad       TEXT,
+            cuit            TEXT,
+            clave_afip      TEXT,
             clave_agip_arba TEXT,
-            iibb          TEXT,
-            observaciones TEXT,
-            condicion     TEXT
+            iibb            TEXT,
+            observaciones   TEXT,
+            condicion       TEXT
         )''')
 
 
@@ -105,10 +117,7 @@ class FormDialog(QWidget):
         grid.setVerticalSpacing(8)
         self.setLayout(grid)
 
-        # Pre-llenar si es edición
         if is_edit:
-            # row_data: (id, revision, nombre, categoria, actividad, cuit,
-            #            clave_afip, clave_agip_arba, iibb, observaciones, condicion)
             _, rev, nombre, cat, activ, cuit, c_afip, c_agip, iibb, obs, cond = row_data
             self.fields["nombre"].setText(nombre or "")
             self.fields["categoria"].setText(cat or "")
@@ -134,8 +143,8 @@ class FormDialog(QWidget):
             return w.text().strip()
 
         data = {k: val(k) for k in self.fields}
-        data["condicion"]  = self.combo_condicion.currentText()
-        data["revision"]   = 1 if self.chk_revision.isChecked() else 0
+        data["condicion"] = self.combo_condicion.currentText()
+        data["revision"]  = 1 if self.chk_revision.isChecked() else 0
 
         with get_conn() as conn:
             if self.row_id is None:
@@ -175,7 +184,6 @@ class MainWindow(QWidget):
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Barra de búsqueda
         search_bar = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre, CUIT o actividad...")
@@ -183,14 +191,12 @@ class MainWindow(QWidget):
         search_bar.addWidget(QLabel("Buscar:"))
         search_bar.addWidget(self.search_input)
 
-        # Filtro condición
         self.combo_filtro = QComboBox()
         self.combo_filtro.addItems(["Todos"] + CONDICIONES)
         self.combo_filtro.currentTextChanged.connect(self.load_data)
         search_bar.addWidget(QLabel("Condición:"))
         search_bar.addWidget(self.combo_filtro)
 
-        # Tabla
         self.table = QTableWidget()
         self.table.setColumnCount(len(COLS_DISPLAY))
         self.table.setHorizontalHeaderLabels(COLS_DISPLAY)
@@ -201,7 +207,6 @@ class MainWindow(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.doubleClicked.connect(self._editar_fila)
 
-        # Botones
         btn_layout = QHBoxLayout()
         self.btn_add    = QPushButton("+ Agregar")
         self.btn_edit   = QPushButton("Editar")
@@ -220,7 +225,6 @@ class MainWindow(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
-        # Cache de IDs por fila visible
         self._row_ids = []
         self.load_data()
 
@@ -233,45 +237,38 @@ class MainWindow(QWidget):
                 'SELECT * FROM monotributistas ORDER BY nombre'
             ).fetchall()
 
-        # Filtrar en Python para simplicidad
         if q:
             rows = [r for r in rows if
-                    q in (r[2] or "").lower() or   # nombre
-                    q in (r[5] or "").lower() or   # cuit
-                    q in (r[4] or "").lower()]      # actividad
+                    q in (r[2] or "").lower() or
+                    q in (r[5] or "").lower() or
+                    q in (r[4] or "").lower()]
         if filtro != "Todos":
             rows = [r for r in rows if (r[10] or "") == filtro]
 
         self._row_ids = [r[0] for r in rows]
         self.table.setRowCount(len(rows))
 
-        # Colores por condición
-        COLORES = {
-            "Baja":    "#ffcccc",
-            "Mensual": "#ccffcc",
-            "Casual":  "#ffffff",
-        }
-
         for r_i, row in enumerate(rows):
-            # row: (id, revision, nombre, categoria, actividad, cuit,
-            #       clave_afip, clave_agip_arba, iibb, observaciones, condicion)
             display_vals = [
-                "✔" if row[1] else "",   # revision
-                row[2] or "",             # nombre
-                row[3] or "",             # categoria
-                row[4] or "",             # actividad
-                row[5] or "",             # cuit
-                row[6] or "",             # clave_afip
-                row[7] or "",             # clave_agip_arba
-                row[8] or "",             # iibb
-                row[9] or "",             # observaciones
-                row[10] or "",            # condicion
+                "✔" if row[1] else "",
+                row[2]  or "",
+                row[3]  or "",
+                row[4]  or "",
+                row[5]  or "",
+                row[6]  or "",
+                row[7]  or "",
+                row[8]  or "",
+                row[9]  or "",
+                row[10] or "",
             ]
-            color = COLORES.get(row[10] or "", "#ffffff")
+            # ── CORRECCIÓN: usar el dict COLORES_CONDICION definido al inicio
+            # del módulo con objetos QColor ya instanciados, en lugar del
+            # __import__ dinámico que se ejecutaba por cada celda de cada fila.
+            color = COLORES_CONDICION.get(row[10] or "", COLOR_DEFAULT)
             for c_i, val in enumerate(display_vals):
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(__import__('PyQt6.QtGui', fromlist=['QColor']).QColor(color))
+                item.setBackground(color)
                 self.table.setItem(r_i, c_i, item)
 
     def _get_selected_id(self):
