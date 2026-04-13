@@ -1,214 +1,331 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QPixmap
+import os
 import sqlite3
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QComboBox,
+    QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QHBoxLayout, QGridLayout, QHeaderView, QCheckBox, QTextEdit
+)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 
-# Conexión a la base de datos SQLite
-conn = sqlite3.connect('Data\datos_monot.db')
-c = conn.cursor()
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
+DB_PATH   = os.path.join(DATA_DIR, "datos_monot.db")
+LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
-# Crear tabla si no existe
-c.execute('''CREATE TABLE IF NOT EXISTS monotributistas
-             (Cliente TEXT, Actividad TEXT, Cuit TEXT, Categoria TEXT, ClaveAfip TEXT, IngresosBrutos TEXT,
-              ClaveIIBB TEXT, Cel TEXT, Mail TEXT, Otros TEXT)''')
-conn.commit()
-conn.close()
+# Columnas visibles y sus nombres en la DB
+COLS_DISPLAY = [
+    "Rev.", "Nombre", "Cat", "Actividad", "CUIT",
+    "Clave AFIP", "Clave Agip/Arba", "IIBB",
+    "Observaciones", "Condición"
+]
+COLS_DB = [
+    "revision", "nombre", "categoria", "actividad", "cuit",
+    "clave_afip", "clave_agip_arba", "iibb",
+    "observaciones", "condicion"
+]
 
-class AddDataWindow(QWidget):
-    def __init__(self, parent):
+CONDICIONES = ["Casual", "Mensual", "Baja"]
+
+
+def get_conn():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    return sqlite3.connect(DB_PATH)
+
+
+def init_db():
+    with get_conn() as conn:
+        conn.execute(f'''CREATE TABLE IF NOT EXISTS monotributistas (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            revision      INTEGER DEFAULT 0,
+            nombre        TEXT,
+            categoria     TEXT,
+            actividad     TEXT,
+            cuit          TEXT,
+            clave_afip    TEXT,
+            clave_agip_arba TEXT,
+            iibb          TEXT,
+            observaciones TEXT,
+            condicion     TEXT
+        )''')
+
+
+# ─────────────────────────────────────────────────────────────
+class FormDialog(QWidget):
+    """Ventana para agregar o editar un monotributista."""
+    def __init__(self, parent_window, row_data=None, row_id=None):
         super().__init__()
-        self.parent = parent
-        self.setWindowTitle('Añadir Datos')
-        self.setGeometry(100, 100, 300, 400)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
+        self.parent_window = parent_window
+        self.row_id = row_id
+        is_edit = row_data is not None
+        self.setWindowTitle("Editar cliente" if is_edit else "Agregar cliente")
+        self.setGeometry(200, 200, 380, 420)
+        if os.path.exists(LOGO_PATH):
+            self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.cliente_label = QLabel('Cliente:', self)
-        self.cliente_input = QLineEdit(self)
+        grid = QGridLayout()
+        self.fields = {}
 
-        self.actividad_label = QLabel('Actividad:', self)
-        self.actividad_input = QLineEdit(self)
+        labels_keys = [
+            ("Nombre",          "nombre"),
+            ("Categoría",       "categoria"),
+            ("Actividad",       "actividad"),
+            ("CUIT",            "cuit"),
+            ("Clave AFIP",      "clave_afip"),
+            ("Clave Agip/Arba", "clave_agip_arba"),
+            ("IIBB",            "iibb"),
+            ("Observaciones",   "observaciones"),
+        ]
 
-        self.cuit_label = QLabel('Cuit:', self)
-        self.cuit_input = QLineEdit(self)
+        for i, (label, key) in enumerate(labels_keys):
+            grid.addWidget(QLabel(f"{label}:"), i, 0)
+            if key == "observaciones":
+                w = QTextEdit()
+                w.setFixedHeight(60)
+            else:
+                w = QLineEdit()
+            self.fields[key] = w
+            grid.addWidget(w, i, 1)
 
-        self.categoria_label = QLabel('Categoría:', self)
-        self.categoria_input = QLineEdit(self)
+        # Condición — combo
+        grid.addWidget(QLabel("Condición:"), len(labels_keys), 0)
+        self.combo_condicion = QComboBox()
+        self.combo_condicion.addItems(CONDICIONES)
+        grid.addWidget(self.combo_condicion, len(labels_keys), 1)
 
-        self.clave_afip_label = QLabel('Clave AFIP:', self)
-        self.clave_afip_input = QLineEdit(self)
+        # Revisión — checkbox
+        self.chk_revision = QCheckBox("Marcado para revisión")
+        grid.addWidget(self.chk_revision, len(labels_keys) + 1, 0, 1, 2)
 
-        self.ingresos_brutos_label = QLabel('Ingresos Brutos:', self)
-        self.ingresos_brutos_input = QLineEdit(self)
+        btn = QPushButton("Guardar")
+        btn.clicked.connect(self._guardar)
+        grid.addWidget(btn, len(labels_keys) + 2, 0, 1, 2)
 
-        self.clave_iibb_label = QLabel('Clave IIBB:', self)
-        self.clave_iibb_input = QLineEdit(self)
+        grid.setContentsMargins(16, 16, 16, 16)
+        grid.setVerticalSpacing(8)
+        self.setLayout(grid)
 
-        self.cel_label = QLabel('Cel:', self)
-        self.cel_input = QLineEdit(self)
+        # Pre-llenar si es edición
+        if is_edit:
+            # row_data: (id, revision, nombre, categoria, actividad, cuit,
+            #            clave_afip, clave_agip_arba, iibb, observaciones, condicion)
+            _, rev, nombre, cat, activ, cuit, c_afip, c_agip, iibb, obs, cond = row_data
+            self.fields["nombre"].setText(nombre or "")
+            self.fields["categoria"].setText(cat or "")
+            self.fields["actividad"].setText(activ or "")
+            self.fields["cuit"].setText(cuit or "")
+            self.fields["clave_afip"].setText(c_afip or "")
+            self.fields["clave_agip_arba"].setText(c_agip or "")
+            self.fields["iibb"].setText(iibb or "")
+            if isinstance(self.fields["observaciones"], QTextEdit):
+                self.fields["observaciones"].setPlainText(obs or "")
+            else:
+                self.fields["observaciones"].setText(obs or "")
+            idx = self.combo_condicion.findText(cond or "")
+            if idx >= 0:
+                self.combo_condicion.setCurrentIndex(idx)
+            self.chk_revision.setChecked(bool(rev))
 
-        self.mail_label = QLabel('Mail:', self)
-        self.mail_input = QLineEdit(self)
+    def _guardar(self):
+        def val(k):
+            w = self.fields[k]
+            if isinstance(w, QTextEdit):
+                return w.toPlainText().strip()
+            return w.text().strip()
 
-        self.otros_label = QLabel('Otros:', self)
-        self.otros_input = QLineEdit(self)
+        data = {k: val(k) for k in self.fields}
+        data["condicion"]  = self.combo_condicion.currentText()
+        data["revision"]   = 1 if self.chk_revision.isChecked() else 0
 
-        self.add_button = QPushButton('Añadir', self)
-        self.add_button.clicked.connect(self.add_data)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.cliente_label)
-        layout.addWidget(self.cliente_input)
-        layout.addWidget(self.actividad_label)
-        layout.addWidget(self.actividad_input)
-        layout.addWidget(self.cuit_label)
-        layout.addWidget(self.cuit_input)
-        layout.addWidget(self.categoria_label)
-        layout.addWidget(self.categoria_input)
-        layout.addWidget(self.clave_afip_label)
-        layout.addWidget(self.clave_afip_input)
-        layout.addWidget(self.ingresos_brutos_label)
-        layout.addWidget(self.ingresos_brutos_input)
-        layout.addWidget(self.clave_iibb_label)
-        layout.addWidget(self.clave_iibb_input)
-        layout.addWidget(self.cel_label)
-        layout.addWidget(self.cel_input)
-        layout.addWidget(self.mail_label)
-        layout.addWidget(self.mail_input)
-        layout.addWidget(self.otros_label)
-        layout.addWidget(self.otros_input)
-        layout.addWidget(self.add_button)
-
-        self.setLayout(layout)
-
-    def add_data(self):
-        cliente = self.cliente_input.text()
-        actividad = self.actividad_input.text()
-        cuit = self.cuit_input.text()
-        categoria = self.categoria_input.text()
-        clave_afip = self.clave_afip_input.text()
-        ingresos_brutos = self.ingresos_brutos_input.text()
-        clave_iibb = self.clave_iibb_input.text()
-        cel = self.cel_input.text()
-        mail = self.mail_input.text()
-        otros = self.otros_input.text()
-
-        # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('Data\datos_monot.db')
-        c = conn.cursor()
-
-        # Insertar los datos en la tabla monotributistas
-        c.execute('INSERT INTO monotributistas VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                  (cliente, actividad, cuit, categoria, clave_afip, ingresos_brutos, clave_iibb, cel, mail, otros))
-        conn.commit()
-        conn.close()
-
-        self.parent.load_data()
+        with get_conn() as conn:
+            if self.row_id is None:
+                conn.execute(
+                    '''INSERT INTO monotributistas
+                       (revision,nombre,categoria,actividad,cuit,
+                        clave_afip,clave_agip_arba,iibb,observaciones,condicion)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                    (data["revision"], data["nombre"], data["categoria"],
+                     data["actividad"], data["cuit"], data["clave_afip"],
+                     data["clave_agip_arba"], data["iibb"],
+                     data["observaciones"], data["condicion"])
+                )
+            else:
+                conn.execute(
+                    '''UPDATE monotributistas SET
+                       revision=?,nombre=?,categoria=?,actividad=?,cuit=?,
+                       clave_afip=?,clave_agip_arba=?,iibb=?,observaciones=?,condicion=?
+                       WHERE id=?''',
+                    (data["revision"], data["nombre"], data["categoria"],
+                     data["actividad"], data["cuit"], data["clave_afip"],
+                     data["clave_agip_arba"], data["iibb"],
+                     data["observaciones"], data["condicion"],
+                     self.row_id)
+                )
+        self.parent_window.load_data()
         self.close()
 
+
+# ─────────────────────────────────────────────────────────────
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Estudio Contable - Monotributistas')
-        self.setGeometry(500, 100, 1000, 900)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
+        init_db()
+        self.setWindowTitle("Monotributistas — MMAC")
+        self.setGeometry(300, 80, 1100, 700)
+        if os.path.exists(LOGO_PATH):
+            self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.table = QTableWidget(self)
-        self.table.setColumnCount(10)
-        self.table.setRowCount(100)
-        self.table.setHorizontalHeaderLabels(['Cliente', 'Actividad', 'Cuit', 'Categoria', 'Clave AFIP',
-                                               'Ingresos Brutos', 'Clave IIBB', 'Cel', 'Mail', 'Otros'])
+        # Barra de búsqueda
+        search_bar = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Buscar por nombre, CUIT o actividad...")
+        self.search_input.textChanged.connect(self.load_data)
+        search_bar.addWidget(QLabel("Buscar:"))
+        search_bar.addWidget(self.search_input)
 
-        self.add_button = QPushButton('Añadir', self)
-        self.add_button.clicked.connect(self.add_data)
+        # Filtro condición
+        self.combo_filtro = QComboBox()
+        self.combo_filtro.addItems(["Todos"] + CONDICIONES)
+        self.combo_filtro.currentTextChanged.connect(self.load_data)
+        search_bar.addWidget(QLabel("Condición:"))
+        search_bar.addWidget(self.combo_filtro)
 
-        self.modify_button = QPushButton('Modificar', self)
-        self.modify_button.clicked.connect(self.modify_data)
+        # Tabla
+        self.table = QTableWidget()
+        self.table.setColumnCount(len(COLS_DISPLAY))
+        self.table.setHorizontalHeaderLabels(COLS_DISPLAY)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.doubleClicked.connect(self._editar_fila)
 
-        self.delete_button = QPushButton('Eliminar', self)
-        self.delete_button.clicked.connect(self.delete_data)
-        
-         # Ajustar el tamaño de las columnas según el contenido
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Botones
+        btn_layout = QHBoxLayout()
+        self.btn_add    = QPushButton("+ Agregar")
+        self.btn_edit   = QPushButton("Editar")
+        self.btn_delete = QPushButton("Eliminar")
+        for b in (self.btn_add, self.btn_edit, self.btn_delete):
+            btn_layout.addWidget(b)
+
+        self.btn_add.clicked.connect(self._agregar)
+        self.btn_edit.clicked.connect(self._editar)
+        self.btn_delete.clicked.connect(self._eliminar)
 
         layout = QVBoxLayout()
+        layout.addLayout(search_bar)
         layout.addWidget(self.table)
-        layout.addWidget(self.add_button)
-        layout.addWidget(self.modify_button)
-        layout.addWidget(self.delete_button)
+        layout.addLayout(btn_layout)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.setLayout(layout)
 
+        # Cache de IDs por fila visible
+        self._row_ids = []
         self.load_data()
 
     def load_data(self):
-        conn = sqlite3.connect('Data\datos_monot.db')
-        c = conn.cursor()
-        c.execute('SELECT * FROM monotributistas')
-        data = c.fetchall()
-        self.table.setRowCount(100)
-        # Establecer ancho de las columnas
-        self.table.setColumnWidth(0, 150)  # Cliente
-        self.table.setColumnWidth(1, 150)  # Actividad
-        # Establecer el ancho para las demás columnas según sea necesario
+        q = self.search_input.text().strip().lower()
+        filtro = self.combo_filtro.currentText()
 
-        for row_index, row_data in enumerate(data):
-            for column_index, item in enumerate(row_data):
-                cell_item = QTableWidgetItem(item)
-                cell_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # Centrar y ajustar el texto al centro de cada celda
-                self.table.setItem(row_index, column_index, cell_item)
-        conn.close()
+        with get_conn() as conn:
+            rows = conn.execute(
+                'SELECT * FROM monotributistas ORDER BY nombre'
+            ).fetchall()
 
-    def add_data(self):
-        self.add_data_window = AddDataWindow(self)
-        self.add_data_window.show()
+        # Filtrar en Python para simplicidad
+        if q:
+            rows = [r for r in rows if
+                    q in (r[2] or "").lower() or   # nombre
+                    q in (r[5] or "").lower() or   # cuit
+                    q in (r[4] or "").lower()]      # actividad
+        if filtro != "Todos":
+            rows = [r for r in rows if (r[10] or "") == filtro]
 
-    def modify_data(self):
-        # Obtener los datos ingresados en las celdas seleccionadas
-        selected_items = self.table.selectedItems()
-        if len(selected_items) != self.table.columnCount():
-            QMessageBox.warning(self, 'Error', 'Debes seleccionar una fila completa para modificar.')
+        self._row_ids = [r[0] for r in rows]
+        self.table.setRowCount(len(rows))
+
+        # Colores por condición
+        COLORES = {
+            "Baja":    "#ffcccc",
+            "Mensual": "#ccffcc",
+            "Casual":  "#ffffff",
+        }
+
+        for r_i, row in enumerate(rows):
+            # row: (id, revision, nombre, categoria, actividad, cuit,
+            #       clave_afip, clave_agip_arba, iibb, observaciones, condicion)
+            display_vals = [
+                "✔" if row[1] else "",   # revision
+                row[2] or "",             # nombre
+                row[3] or "",             # categoria
+                row[4] or "",             # actividad
+                row[5] or "",             # cuit
+                row[6] or "",             # clave_afip
+                row[7] or "",             # clave_agip_arba
+                row[8] or "",             # iibb
+                row[9] or "",             # observaciones
+                row[10] or "",            # condicion
+            ]
+            color = COLORES.get(row[10] or "", "#ffffff")
+            for c_i, val in enumerate(display_vals):
+                item = QTableWidgetItem(val)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setBackground(__import__('PyQt6.QtGui', fromlist=['QColor']).QColor(color))
+                self.table.setItem(r_i, c_i, item)
+
+    def _get_selected_id(self):
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self._row_ids):
+            return None, None
+        return row, self._row_ids[row]
+
+    def _get_row_data(self, row_id):
+        with get_conn() as conn:
+            return conn.execute(
+                'SELECT * FROM monotributistas WHERE id=?', (row_id,)
+            ).fetchone()
+
+    def _agregar(self):
+        self._form = FormDialog(self)
+        self._form.show()
+
+    def _editar(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar.")
             return
+        self._editar_por_id(row_id)
 
-        data = [item.text() for item in selected_items]
+    def _editar_fila(self):
+        row, row_id = self._get_selected_id()
+        if row_id is not None:
+            self._editar_por_id(row_id)
 
-        # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('Data\datos_monot.db')
-        c = conn.cursor()
+    def _editar_por_id(self, row_id):
+        data = self._get_row_data(row_id)
+        self._form = FormDialog(self, row_data=data, row_id=row_id)
+        self._form.show()
 
-        # Modificar los datos en la tabla monotributistas
-        c.execute('UPDATE monotributistas SET Cliente=?, Actividad=?, Cuit=?, Categoria=?, ClaveAfip=?, IngresosBrutos=?, '
-                  'ClaveIIBB=?, Cel=?, Mail=?, Otros=? WHERE Cliente=?', tuple(data + [data[0]]))
-        conn.commit()
-        conn.close()
-
-        # Actualizar la tabla con los datos modificados
-        self.load_data()
-
-    def delete_data(self):
-        # Obtener la fila seleccionada
-        selected_row = self.table.currentRow()
-        if selected_row == -1:
-            QMessageBox.warning(self, 'Error', 'Debes seleccionar una fila para eliminar.')
+    def _eliminar(self):
+        row, row_id = self._get_selected_id()
+        if row_id is None:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar.")
             return
+        nombre = self.table.item(row, 1).text()
+        confirm = QMessageBox.question(
+            self, "Confirmar eliminación",
+            f"¿Eliminar a {nombre}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            with get_conn() as conn:
+                conn.execute('DELETE FROM monotributistas WHERE id=?', (row_id,))
+            self.load_data()
 
-        # Obtener los datos de la fila seleccionada
-        data = [self.table.item(selected_row, column_index).text() for column_index in range(self.table.columnCount())]
-
-        # Conexión a la base de datos SQLite
-        conn = sqlite3.connect('Data\datos_monot.db')
-        c = conn.cursor()
-
-        # Eliminar los datos de la tabla monotributistas
-        c.execute('DELETE FROM monotributistas WHERE Cliente=?', (data[0],))
-        conn.commit()
-        conn.close()
-
-        # Actualizar la tabla sin la fila eliminada
-        self.table.removeRow(selected_row)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.show()
-    sys.exit(app.exec_())
+    w = MainWindow()
+    w.show()
+    sys.exit(app.exec())

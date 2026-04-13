@@ -1,109 +1,87 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, \
-    QPushButton, QMessageBox, QLabel, QLineEdit, QGridLayout, QHeaderView
-from PyQt5.QtCore import Qt
+import os
 import sqlite3
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QGridLayout, QTableWidget,
+    QTableWidgetItem, QPushButton, QMessageBox, QLabel, QLineEdit, QHeaderView
+)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 
-conn = sqlite3.connect('Data\datos_resp.db')
-c = conn.cursor()
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
+DB_PATH = os.path.join(DATA_DIR, "datos_resp.db")
+LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
-c.execute('''CREATE TABLE IF NOT EXISTS estudio_contable_responsables_inscriptos
-             (RAZON_SOCIAL TEXT, CUIT TEXT, CLAVE_AFIP TEXT, CLAVE_IIBB TEXT, CLAVE_CABA TEXT, CEL TEXT, MAIL TEXT)''')
+COLUMNAS = ['RAZON SOCIAL', 'CUIT', 'CLAVE AFIP', 'CLAVE IIBB', 'CLAVE CABA', 'CEL', 'MAIL']
+FIELDS_DB = ['RAZON_SOCIAL', 'CUIT', 'CLAVE_AFIP', 'CLAVE_IIBB', 'CLAVE_CABA', 'CEL', 'MAIL']
+
+
+def get_conn():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    return sqlite3.connect(DB_PATH)
+
+
+def init_db(table_name: str):
+    with get_conn() as conn:
+        conn.execute(f'''CREATE TABLE IF NOT EXISTS {table_name}
+            (RAZON_SOCIAL TEXT, CUIT TEXT, CLAVE_AFIP TEXT,
+             CLAVE_IIBB TEXT, CLAVE_CABA TEXT, CEL TEXT, MAIL TEXT)''')
+
 
 class AddDataWindow(QWidget):
-    def __init__(self, parent, table_name):
+    def __init__(self, parent, table_name: str):
         super().__init__()
-        self.parent = parent
+        self.parent_window = parent
         self.table_name = table_name
-        self.setWindowTitle('Agregar Datos')
-        self.setGeometry(400, 100, 400, 600)
+        self.setWindowTitle("Agregar Responsable Inscripto")
+        self.setGeometry(400, 150, 380, 320)
+        if os.path.exists(LOGO_PATH):
+            self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.razon_social_label = QLabel('Razón Social:', self)
-        self.cuit_label = QLabel('CUIT:', self)
-        self.clave_afip_label = QLabel('Clave AFIP:', self)
-        self.clave_iibb_label = QLabel('Clave IIBB:', self)
-        self.clave_caba_label = QLabel('Clave CABA:', self)
-        self.cel_label = QLabel('Cel:', self)
-        self.mail_label = QLabel('Mail:', self)
-
-        self.razon_social_input = QLineEdit(self)
-        self.cuit_input = QLineEdit(self)
-        self.clave_afip_input = QLineEdit(self)
-        self.clave_iibb_input = QLineEdit(self)
-        self.clave_caba_input = QLineEdit(self)
-        self.cel_input = QLineEdit(self)
-        self.mail_input = QLineEdit(self)
-
-        self.save_button = QPushButton('Guardar', self)
-        self.save_button.clicked.connect(self.save_data)
-
+        self.inputs = {}
         layout = QGridLayout()
-        layout.addWidget(self.razon_social_label, 0, 0)
-        layout.addWidget(self.cuit_label, 1, 0)
-        layout.addWidget(self.clave_afip_label, 2, 0)
-        layout.addWidget(self.clave_iibb_label, 3, 0)
-        layout.addWidget(self.clave_caba_label, 4, 0)
-        layout.addWidget(self.cel_label, 5, 0)
-        layout.addWidget(self.mail_label, 6, 0)
 
-        layout.addWidget(self.razon_social_input, 0, 1)
-        layout.addWidget(self.cuit_input, 1, 1)
-        layout.addWidget(self.clave_afip_input, 2, 1)
-        layout.addWidget(self.clave_iibb_input, 3, 1)
-        layout.addWidget(self.clave_caba_input, 4, 1)
-        layout.addWidget(self.cel_input, 5, 1)
-        layout.addWidget(self.mail_input, 6, 1)
+        for i, (col_display, field) in enumerate(zip(COLUMNAS, FIELDS_DB)):
+            layout.addWidget(QLabel(f"{col_display}:"), i, 0)
+            inp = QLineEdit()
+            self.inputs[field] = inp
+            layout.addWidget(inp, i, 1)
 
-        layout.addWidget(self.save_button, 7, 0, 1, 2)
-
+        self.save_button = QPushButton("Guardar")
+        self.save_button.clicked.connect(self._save_data)
+        layout.addWidget(self.save_button, len(COLUMNAS), 0, 1, 2)
         self.setLayout(layout)
 
-    def save_data(self):
-        razon_social = self.razon_social_input.text()
-        cuit = self.cuit_input.text()
-        clave_afip = self.clave_afip_input.text()
-        clave_iibb = self.clave_iibb_input.text()
-        clave_caba = self.clave_caba_input.text()
-        cel = self.cel_input.text()
-        mail = self.mail_input.text()
-
-        conn = sqlite3.connect('Data\datos_resp.db')
-        c = conn.cursor()
-
-        c.execute(f'INSERT INTO {self.table_name} VALUES (?, ?, ?, ?, ?, ?, ?)',
-                  (razon_social, cuit, clave_afip, clave_iibb, clave_caba, cel, mail))
-
-        conn.commit()
-        conn.close()
-
-        self.parent.load_data()
+    def _save_data(self):
+        values = [self.inputs[f].text() for f in FIELDS_DB]
+        with get_conn() as conn:
+            conn.execute(
+                f'INSERT INTO {self.table_name} VALUES (?,?,?,?,?,?,?)',
+                values
+            )
+        self.parent_window.load_data()
         self.close()
 
 
 class MainWindowRI(QWidget):
-    def __init__(self, table_name, window_title):
+    def __init__(self, table_name: str, window_title: str):
         super().__init__()
         self.table_name = table_name
+        init_db(table_name)
         self.setWindowTitle(window_title)
-        self.setGeometry(500, 100, 800, 900)
+        self.setGeometry(500, 100, 800, 700)
+        if os.path.exists(LOGO_PATH):
+            self.setWindowIcon(QIcon(LOGO_PATH))
 
-        self.table = QTableWidget(self)
-        self.table.setColumnCount(7)
-        self.table.setRowCount(100)
-        self.table.setHorizontalHeaderLabels(['RAZON SOCIAL', 'CUIT', 'CLAVE AFIP', 'CLAVE IIBB', 'CLAVE CABA', 'CEL', 'MAIL'])
+        self.table = QTableWidget()
+        self.table.setColumnCount(len(COLUMNAS))
+        self.table.setHorizontalHeaderLabels(COLUMNAS)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 
-        self.add_button = QPushButton('Añadir', self)
-        self.add_button.clicked.connect(self.add_data)
-
-        self.modify_button = QPushButton('Modificar', self)
-        self.modify_button.clicked.connect(self.modify_data)
-
-        self.delete_button = QPushButton('Eliminar', self)
-        self.delete_button.clicked.connect(self.delete_data)
-        
-                 # Ajustar el tamaño de las columnas según el contenido
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.add_button = QPushButton("Añadir")
+        self.modify_button = QPushButton("Guardar cambios")
+        self.delete_button = QPushButton("Eliminar")
 
         layout = QVBoxLayout()
         layout.addWidget(self.table)
@@ -112,64 +90,62 @@ class MainWindowRI(QWidget):
         layout.addWidget(self.delete_button)
         self.setLayout(layout)
 
+        self.add_button.clicked.connect(self._add_data)
+        self.modify_button.clicked.connect(self._modify_data)
+        self.delete_button.clicked.connect(self._delete_data)
+
         self.load_data()
 
     def load_data(self):
-        conn = sqlite3.connect('Data\datos_resp.db')
-        c = conn.cursor()
-        c.execute(f'SELECT * FROM {self.table_name}')
-        data = c.fetchall()
-        for row_index, row_data in enumerate(data):
-            for column_index, item in enumerate(row_data):
-                cell_item = QTableWidgetItem(item)
-                cell_item.setTextAlignment(Qt.AlignCenter)  # Centrar el texto
-                self.table.setItem(row_index, column_index, cell_item)
-        conn.close()
+        with get_conn() as conn:
+            rows = conn.execute(f'SELECT * FROM {self.table_name}').fetchall()
+        self.table.setRowCount(len(rows))
+        for r_i, row in enumerate(rows):
+            for c_i, val in enumerate(row):
+                item = QTableWidgetItem(str(val) if val else "")
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setItem(r_i, c_i, item)
 
-    def add_data(self):
-        self.add_data_window = AddDataWindow(self, self.table_name)
-        self.add_data_window.show()
+    def _add_data(self):
+        self._add_window = AddDataWindow(self, self.table_name)
+        self._add_window.show()
 
-    def modify_data(self):
-        selected_items = self.table.selectedItems()
-        if len(selected_items) != self.table.columnCount():
-            QMessageBox.warning(self, 'Error', 'Debes seleccionar una fila completa para modificar.')
+    def _modify_data(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para modificar.")
             return
-
-        data = [item.text() for item in selected_items]
-
-        conn = sqlite3.connect('Data\datos_resp.db')
-        c = conn.cursor()
-        c.execute(f'UPDATE {self.table_name} SET RAZON_SOCIAL = ?, CUIT = ?, CLAVE_AFIP = ?, CLAVE_IIBB = ?, CLAVE_CABA = ?, CEL = ?, MAIL = ? WHERE CUIT = ?',
-                  (data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[1]))
-        conn.commit()
-        conn.close()
-
+        data = [self.table.item(row, c).text() for c in range(self.table.columnCount())]
+        with get_conn() as conn:
+            conn.execute(
+                f'''UPDATE {self.table_name}
+                    SET RAZON_SOCIAL=?,CUIT=?,CLAVE_AFIP=?,CLAVE_IIBB=?,CLAVE_CABA=?,CEL=?,MAIL=?
+                    WHERE CUIT=?''',
+                data + [data[1]]
+            )
         self.load_data()
 
-    def delete_data(self):
-        selected_items = self.table.selectedItems()
-        if len(selected_items) != self.table.columnCount():
-            QMessageBox.warning(self, 'Error', 'Debes seleccionar una fila completa para eliminar.')
+    def _delete_data(self):
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar.")
             return
-
-        data = [item.text() for item in selected_items]
-
-        reply = QMessageBox.question(self, 'Eliminar', '¿Estás seguro de que quieres eliminar este cliente?',
-                                      QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            conn = sqlite3.connect('Data\datos_resp.db')
-            c = conn.cursor()
-            c.execute(f'DELETE FROM {self.table_name} WHERE CUIT = ?', (data[1],))
-            conn.commit()
-            conn.close()
-
+        cuit = self.table.item(row, 1).text()
+        confirm = QMessageBox.question(
+            self, "Confirmar", f"¿Eliminar el cliente con CUIT {cuit}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            with get_conn() as conn:
+                conn.execute(f'DELETE FROM {self.table_name} WHERE CUIT=?', (cuit,))
             self.load_data()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    main_window = MainWindowRI('estudio_contable_responsables_inscriptos', 'Estudio Contable - Responsables Inscriptos')
-    main_window.table.setShowGrid(True)  # Mostrar líneas de cuadrícula
-    main_window.show()
-    sys.exit(app.exec_())
+    w = MainWindowRI(
+        'estudio_contable_responsables_inscriptos',
+        'Responsables Inscriptos — MMAC'
+    )
+    w.show()
+    sys.exit(app.exec())

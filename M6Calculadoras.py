@@ -1,171 +1,273 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLineEdit, QLabel, QComboBox
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import Qt
+import os
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QPushButton, QLineEdit,
+    QLabel, QComboBox, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QGroupBox, QTabWidget
+)
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt
+
+DATA_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
+LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
 
+def _icon():
+    return QIcon(LOGO_PATH) if os.path.exists(LOGO_PATH) else QIcon()
+
+
+def _resultado_label():
+    lbl = QLabel("")
+    lbl.setStyleSheet("font-weight: bold; color: #1a5276; padding: 6px 0;")
+    lbl.setWordWrap(True)
+    return lbl
+
+
+def _safe_float(text):
+    return float(text.strip().replace(",", ".").replace(" ", ""))
+
+
+# ══════════════════════════════════════════════════════════════
+class TabIVA(QWidget):
+    """IVA y alícuotas — calcula neto→total y total→neto."""
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+
+        # ── Neto → Total ──────────────────────────────────────
+        grp1 = QGroupBox("Neto → Total con IVA")
+        g1 = QGridLayout()
+        g1.addWidget(QLabel("Neto ($):"), 0, 0)
+        self.txt_neto_in = QLineEdit()
+        g1.addWidget(self.txt_neto_in, 0, 1)
+        g1.addWidget(QLabel("Alícuota IVA:"), 1, 0)
+        self.combo_iva1 = QComboBox()
+        self.combo_iva1.addItems(["21%", "27%", "10.5%", "Otro..."])
+        self.combo_iva1.currentTextChanged.connect(self._toggle_otro1)
+        g1.addWidget(self.combo_iva1, 1, 1)
+        self.txt_otro1 = QLineEdit()
+        self.txt_otro1.setPlaceholderText("% personalizado")
+        self.txt_otro1.hide()
+        g1.addWidget(self.txt_otro1, 2, 1)
+        btn1 = QPushButton("Calcular")
+        btn1.clicked.connect(self._neto_a_total)
+        g1.addWidget(btn1, 3, 0, 1, 2)
+        self.res1 = _resultado_label()
+        g1.addWidget(self.res1, 4, 0, 1, 2)
+        grp1.setLayout(g1)
+
+        # ── Total → Neto ──────────────────────────────────────
+        grp2 = QGroupBox("Total → Neto (descontar IVA)")
+        g2 = QGridLayout()
+        g2.addWidget(QLabel("Total ($):"), 0, 0)
+        self.txt_total_in = QLineEdit()
+        g2.addWidget(self.txt_total_in, 0, 1)
+        g2.addWidget(QLabel("Alícuota IVA:"), 1, 0)
+        self.combo_iva2 = QComboBox()
+        self.combo_iva2.addItems(["21%", "27%", "10.5%", "Otro..."])
+        self.combo_iva2.currentTextChanged.connect(self._toggle_otro2)
+        g2.addWidget(self.combo_iva2, 1, 1)
+        self.txt_otro2 = QLineEdit()
+        self.txt_otro2.setPlaceholderText("% personalizado")
+        self.txt_otro2.hide()
+        g2.addWidget(self.txt_otro2, 2, 1)
+        btn2 = QPushButton("Calcular")
+        btn2.clicked.connect(self._total_a_neto)
+        g2.addWidget(btn2, 3, 0, 1, 2)
+        self.res2 = _resultado_label()
+        g2.addWidget(self.res2, 4, 0, 1, 2)
+        grp2.setLayout(g2)
+
+        # ── Percepción → Neto ─────────────────────────────────
+        grp3 = QGroupBox("Percepción → Neto base")
+        g3 = QGridLayout()
+        g3.addWidget(QLabel("Monto percepción ($):"), 0, 0)
+        self.txt_perc = QLineEdit()
+        g3.addWidget(self.txt_perc, 0, 1)
+        g3.addWidget(QLabel("Alícuota (%):"), 1, 0)
+        self.txt_alic = QLineEdit()
+        g3.addWidget(self.txt_alic, 1, 1)
+        btn3 = QPushButton("Calcular")
+        btn3.clicked.connect(self._percepcion_neto)
+        g3.addWidget(btn3, 2, 0, 1, 2)
+        self.res3 = _resultado_label()
+        g3.addWidget(self.res3, 3, 0, 1, 2)
+        grp3.setLayout(g3)
+
+        layout.addWidget(grp1)
+        layout.addWidget(grp2)
+        layout.addWidget(grp3)
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def _get_iva(self, combo, txt_otro):
+        t = combo.currentText()
+        if t == "Otro...":
+            return _safe_float(txt_otro.text())
+        return _safe_float(t.replace("%", ""))
+
+    def _toggle_otro1(self, t):
+        self.txt_otro1.setVisible(t == "Otro...")
+
+    def _toggle_otro2(self, t):
+        self.txt_otro2.setVisible(t == "Otro...")
+
+    def _neto_a_total(self):
+        try:
+            neto = _safe_float(self.txt_neto_in.text())
+            iva  = self._get_iva(self.combo_iva1, self.txt_otro1)
+            iva_monto = neto * iva / 100
+            total = neto + iva_monto
+            self.res1.setText(
+                f"IVA ({iva}%):  ${iva_monto:,.2f}\n"
+                f"Total:         ${total:,.2f}"
+            )
+        except Exception:
+            self.res1.setText("Ingresá valores numéricos válidos.")
+
+    def _total_a_neto(self):
+        try:
+            total = _safe_float(self.txt_total_in.text())
+            iva   = self._get_iva(self.combo_iva2, self.txt_otro2)
+            neto  = total / (1 + iva / 100)
+            iva_monto = total - neto
+            self.res2.setText(
+                f"Neto:          ${neto:,.2f}\n"
+                f"IVA ({iva}%):  ${iva_monto:,.2f}"
+            )
+        except Exception:
+            self.res2.setText("Ingresá valores numéricos válidos.")
+
+    def _percepcion_neto(self):
+        try:
+            perc  = _safe_float(self.txt_perc.text())
+            alic  = _safe_float(self.txt_alic.text())
+            if alic == 0:
+                self.res3.setText("La alícuota no puede ser 0.")
+                return
+            neto = perc / (alic / 100)
+            self.res3.setText(f"Neto base: ${neto:,.2f}")
+        except Exception:
+            self.res3.setText("Ingresá valores numéricos válidos.")
+
+
+# ══════════════════════════════════════════════════════════════
+class TabPorcentajes(QWidget):
+    """Todas las operaciones de porcentaje útiles."""
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+
+        calcs = [
+            ("¿Qué % es A de B?",
+             ["Valor A", "Total B"],
+             self._que_pct_es_a_de_b),
+            ("¿Cuánto es el X% de A?",
+             ["Porcentaje X (%)", "Valor A"],
+             self._cuanto_es_xpct_de_a),
+            ("A se eleva / descuenta un B% → resultado",
+             ["Valor A", "B (%)  [positivo=sube, negativo=baja]"],
+             self._a_sube_baja_b),
+            ("¿Cuánto % creció/bajó A respecto a B?",
+             ["Valor anterior B", "Valor nuevo A"],
+             self._variacion),
+            ("X es el resultado de subir A un B% → A original",
+             ["Resultado X", "B (%) que se subió"],
+             self._deshacer_aumento),
+        ]
+
+        for titulo, labels, fn in calcs:
+            grp = QGroupBox(titulo)
+            g = QGridLayout()
+            inputs = []
+            for i, lbl in enumerate(labels):
+                g.addWidget(QLabel(f"{lbl}:"), i, 0)
+                inp = QLineEdit()
+                inputs.append(inp)
+                g.addWidget(inp, i, 1)
+            res = _resultado_label()
+            btn = QPushButton("Calcular")
+            # closure seguro
+            btn.clicked.connect(lambda checked, f=fn, ins=inputs, r=res: f(ins, r))
+            g.addWidget(btn, len(labels), 0, 1, 2)
+            g.addWidget(res, len(labels)+1, 0, 1, 2)
+            grp.setLayout(g)
+            layout.addWidget(grp)
+
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def _que_pct_es_a_de_b(self, ins, res):
+        try:
+            a = _safe_float(ins[0].text())
+            b = _safe_float(ins[1].text())
+            if b == 0: res.setText("B no puede ser 0."); return
+            res.setText(f"{a:,.2f} es el {(a/b*100):.4f}% de {b:,.2f}")
+        except Exception:
+            res.setText("Ingresá valores numéricos válidos.")
+
+    def _cuanto_es_xpct_de_a(self, ins, res):
+        try:
+            x = _safe_float(ins[0].text())
+            a = _safe_float(ins[1].text())
+            res.setText(f"El {x}% de {a:,.2f} = {a*x/100:,.2f}")
+        except Exception:
+            res.setText("Ingresá valores numéricos válidos.")
+
+    def _a_sube_baja_b(self, ins, res):
+        try:
+            a = _safe_float(ins[0].text())
+            b = _safe_float(ins[1].text())
+            resultado = a * (1 + b/100)
+            accion = "sube" if b >= 0 else "baja"
+            res.setText(
+                f"{a:,.2f} {accion} un {abs(b)}% → ${resultado:,.2f}\n"
+                f"Diferencia: ${resultado-a:,.2f}"
+            )
+        except Exception:
+            res.setText("Ingresá valores numéricos válidos.")
+
+    def _variacion(self, ins, res):
+        try:
+            b = _safe_float(ins[0].text())
+            a = _safe_float(ins[1].text())
+            if b == 0: res.setText("Valor anterior no puede ser 0."); return
+            pct = (a - b) / b * 100
+            signo = "▲ subió" if pct >= 0 else "▼ bajó"
+            res.setText(f"{signo} un {abs(pct):.4f}%  ({b:,.2f} → {a:,.2f})")
+        except Exception:
+            res.setText("Ingresá valores numéricos válidos.")
+
+    def _deshacer_aumento(self, ins, res):
+        try:
+            x = _safe_float(ins[0].text())
+            b = _safe_float(ins[1].text())
+            original = x / (1 + b/100)
+            res.setText(
+                f"Valor original (antes de +{b}%): ${original:,.2f}\n"
+                f"El aumento fue: ${x-original:,.2f}"
+            )
+        except Exception:
+            res.setText("Ingresá valores numéricos válidos.")
+
+
+# ══════════════════════════════════════════════════════════════
 class VentanaCalculadoras(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Calculadoras")
-        self.setGeometry(100, 100, 300, 200)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
+        self.setWindowTitle("Calculadoras — MMAC")
+        self.setGeometry(100, 100, 520, 680)
+        self.setWindowIcon(_icon())
 
-        # Botón "Calculadora de netos"
-        btn_netos = QPushButton("Calculadora de Netos", self)
-        btn_netos.setGeometry(50, 50, 200, 30)
-        btn_netos.clicked.connect(self.abrir_ventana_netos)
+        tabs = QTabWidget()
+        tabs.addTab(TabIVA(),         "IVA y Alícuotas")
+        tabs.addTab(TabPorcentajes(), "Porcentajes")
 
-        # Botón "Calculadora de IVA"
-        btn_iva = QPushButton("Calculadora de IVA", self)
-        btn_iva.setGeometry(50, 100, 200, 30)
-        btn_iva.clicked.connect(self.abrir_ventana_iva)
-
-        # Botón "Calculadora de porcentajes"
-        btn_porcentajes = QPushButton("Calculadora de Porcentajes", self)
-        btn_porcentajes.setGeometry(50, 150, 200, 30)
-        btn_porcentajes.clicked.connect(self.abrir_ventana_porcentajes)
-
-    def abrir_ventana_netos(self):
-        self.ventana_netos = VentanaNetos()
-        self.ventana_netos.show()
-
-    def abrir_ventana_iva(self):
-        self.ventana_iva = VentanaIVA()
-        self.ventana_iva.show()
-
-    def abrir_ventana_porcentajes(self):
-        self.ventana_porcentajes = VentanaPorcentaje()
-        self.ventana_porcentajes.show()
-
-
-class VentanaNetos(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Calculadora de Netos")
-        self.setGeometry(200, 200, 300, 200)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
-
-        self.lbl_percepcion = QLabel("Cantidad percibida:", self)
-        self.lbl_percepcion.setGeometry(20, 20, 120, 30)
-        self.txt_percepcion = QLineEdit(self)
-        self.txt_percepcion.setGeometry(150, 20, 120, 30)
-
-        self.lbl_alicuota = QLabel("Alicuota (%):", self)
-        self.lbl_alicuota.setGeometry(20, 70, 120, 30)
-        self.txt_alicuota = QLineEdit(self)
-        self.txt_alicuota.setGeometry(150, 70, 120, 30)
-
-        self.btn_calcular = QPushButton("Calcular", self)
-        self.btn_calcular.setGeometry(100, 120, 100, 30)
-        self.btn_calcular.clicked.connect(self.calcular_netos)
-
-        self.lbl_resultado = QLabel("", self)
-        self.lbl_resultado.setGeometry(20, 170, 260, 30)
-
-    def calcular_netos(self):
-        percepcion = float(self.txt_percepcion.text())
-        alicuota = float(self.txt_alicuota.text())
-
-        x = (percepcion * 100) / alicuota
-
-        resultado = f"El neto de la percepcion es: {x:.2f}"
-        self.lbl_resultado.setText(resultado)
-
-
-class VentanaIVA(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Calculadora de IVA")
-        self.setGeometry(300, 300, 400, 350)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
-
-        self.lbl_neto = QLabel("Neto:", self)
-        self.lbl_neto.setGeometry(20, 20, 80, 30)
-        self.txt_neto = QLineEdit(self)
-        self.txt_neto.setGeometry(120, 20, 150, 30)
-
-        self.lbl_iva = QLabel("Tipo de IVA:", self)
-        self.lbl_iva.setGeometry(20, 70, 80, 30)
-        self.combo_iva = QComboBox(self)
-        self.combo_iva.setGeometry(120, 70, 150, 30)
-        self.combo_iva.addItem("21%")
-        self.combo_iva.addItem("27%")
-        self.combo_iva.addItem("10.5%")
-
-        self.btn_calcular = QPushButton("Calcular", self)
-        self.btn_calcular.setGeometry(100, 120, 100, 30)
-        self.btn_calcular.clicked.connect(self.calcular_total)
-
-        self.lbl_total = QLabel("", self)
-        self.lbl_total.setGeometry(20, 170, 260, 30)
-
-        self.lbl_resultados = QLabel("", self)
-        self.lbl_resultados.setGeometry(20, 210, 260, 60)
-
-    def calcular_total(self):
-        neto = float(self.txt_neto.text())
-        iva = float(self.combo_iva.currentText().replace("%", ""))
-
-        iva_calculado = (neto * iva) / 100
-        total = neto + iva_calculado
-
-        resultado_iva = f"IVA ({iva}%): {iva_calculado:.2f}"
-        resultado_total = f"Total: {total:.2f}"
-
-        self.lbl_resultados.setText(f"{resultado_iva}\n{resultado_total}")
-
-    def calcular_neto(self):
-        total = float(self.txt_neto.text())
-        iva = float(self.combo_iva.currentText().replace("%", ""))
-
-        neto_calculado = total / (1 + (iva / 100))
-        iva_calculado = total - neto_calculado
-
-        resultado_neto = f"Neto: {neto_calculado:.2f}"
-        resultado_iva = f"IVA ({iva}%): {iva_calculado:.2f}"
-
-        self.lbl_resultados.setText(f"{resultado_neto}\n{resultado_iva}")
-
-
-class VentanaPorcentaje(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Calculadora de Porcentaje")
-        self.setGeometry(200, 200, 300, 250)
-        self.setWindowIcon(QIcon("Data\logo1.jpg"))
-
-        self.lbl_valor_x = QLabel("X Porcentaje:", self)
-        self.lbl_valor_x.setGeometry(20, 20, 80, 30)
-        self.txt_valor_x = QLineEdit(self)
-        self.txt_valor_x.setGeometry(120, 20, 150, 30)
-
-        self.lbl_valor_y = QLabel("Numero X:", self)
-        self.lbl_valor_y.setGeometry(20, 70, 80, 30)
-        self.txt_valor_y = QLineEdit(self)
-        self.txt_valor_y.setGeometry(120, 70, 150, 30)
-
-        self.btn_porcentaje_x = QPushButton("Calcular X % de X", self)
-        self.btn_porcentaje_x.setGeometry(20, 120, 250, 30)
-        self.btn_porcentaje_x.clicked.connect(self.calcular_porcentaje_x)
-
-        self.lbl_resultado_x = QLabel("", self)
-        self.lbl_resultado_x.setGeometry(20, 220, 260, 30)
-
-
-    def calcular_porcentaje_x(self):
-        valor_x = float(self.txt_valor_x.text())
-        valor_y = float(self.txt_valor_y.text())
-
-        porcentaje_x = (valor_x * 100) / valor_y
-
-        self.lbl_resultado_x.setText(f"El {porcentaje_x:.2f}% de {valor_y} es: {valor_x}")
-
-
+        self.setCentralWidget(tabs)
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    ventana = VentanaCalculadoras()
-    ventana.show()
-    sys.exit(app.exec_())
+    v = VentanaCalculadoras()
+    v.show()
+    sys.exit(app.exec())
