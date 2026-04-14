@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QPushButton, QLineEdit
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QColor
+from PyQt6.QtGui import QIcon, QColor, QGuiApplication
 
 from MClienteDetalle import get_conn, init_db, DB_PATH, LOGO_PATH, MESES
 
@@ -31,10 +31,11 @@ def _nombre_cliente(tipo: str, cliente_id: int) -> str:
                     "SELECT nombre FROM monotributistas WHERE id=?", (cliente_id,)
                 ).fetchone()
         else:
+            # Nombre de tabla genérico (sin nombre personal hardcodeado)
             db = os.path.join(data_dir, "datos_resp.db")
             with sqlite3.connect(db) as conn:
                 row = conn.execute(
-                    "SELECT RAZON_SOCIAL FROM estudio_contable_responsables_inscriptos WHERE id=?",
+                    "SELECT razon_social FROM responsables_inscriptos WHERE id=?",
                     (cliente_id,)
                 ).fetchone()
         return row[0] if row else f"#{cliente_id}"
@@ -46,16 +47,12 @@ class PanelHonorarios(QWidget):
     def __init__(self):
         super().__init__()
         init_db()
-        self.setWindowTitle("Honorarios Cobrados — MMAC")
-        self.setGeometry(0, 0, 1000, 680)
+        self.setWindowTitle("Honorarios Cobrados")
 
-        # Centrar
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
-        self.move(
-            screen.center().x() - 500,
-            screen.center().y() - 340
-        )
+        self.resize(1000, 680)
+        self.move(screen.center().x() - 500, screen.center().y() - 340)
+
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
@@ -124,10 +121,10 @@ class PanelHonorarios(QWidget):
         self._cargar()
 
     def _cargar(self):
-        tipo_sel  = self.combo_tipo.currentText()
-        anio_sel  = self.combo_anio.currentText()
-        mes_sel   = self.combo_mes.currentText()
-        buscar    = self.inp_buscar.text().strip().lower()
+        tipo_sel = self.combo_tipo.currentText()
+        anio_sel = self.combo_anio.currentText()
+        mes_sel  = self.combo_mes.currentText()
+        buscar   = self.inp_buscar.text().strip().lower()
 
         with get_conn() as conn:
             rows = conn.execute(
@@ -135,20 +132,17 @@ class PanelHonorarios(QWidget):
                 "FROM cuenta_corriente ORDER BY fecha, id"
             ).fetchall()
 
-        # Filtrar por tipo
         if tipo_sel == "Monotributistas":
             rows = [r for r in rows if r[0] == "mono"]
         elif tipo_sel == "Responsables Inscriptos":
             rows = [r for r in rows if r[0] == "resp"]
 
-        # Filtrar por año/mes
         if anio_sel != "Todos":
             rows = [r for r in rows if r[2].startswith(anio_sel)]
         if mes_sel != "Todos":
             mes_num = str(MESES.index(mes_sel) + 1).zfill(2)
             rows = [r for r in rows if len(r[2]) >= 7 and r[2][5:7] == mes_num]
 
-        # Resolver nombres y filtrar por búsqueda
         filas_final = []
         cache_nombres = {}
         for tipo, cid, fecha, desc, debe, haber in rows:
@@ -160,7 +154,6 @@ class PanelHonorarios(QWidget):
                 continue
             filas_final.append((tipo, nombre, fecha, desc, debe, haber))
 
-        # Calcular saldos acumulados por cliente
         saldos = {}
         filas_con_saldo = []
         for tipo, nombre, fecha, desc, debe, haber in filas_final:

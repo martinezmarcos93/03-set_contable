@@ -1,7 +1,14 @@
+"""
+M2SWorkWindows.py — Ventana principal de navegación
+====================================================
+El nombre del estudio se recibe como parámetro desde M1login.py
+(leído de credenciales.json) en lugar de estar hardcodeado.
+"""
+
 import sys
 import os
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QGuiApplication
 from PyQt6.QtCore import Qt
 
 DATA_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
@@ -9,22 +16,20 @@ LOGO_PATH = os.path.join(DATA_DIR, "logo1.jpg")
 
 
 class VentanaTipoCliente(QWidget):
-    def __init__(self):
+    def __init__(self, nombre_estudio: str = "Software Contable"):
         super().__init__()
-        self.setWindowTitle("Software Contable — MMAC")
+        self.setWindowTitle("Software Contable")
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Centrar
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
-        self.resize(380, 280)
+        self.resize(380, 290)
         self.move(
             screen.center().x() - self.width() // 2,
             screen.center().y() - self.height() // 2
         )
 
-        titulo = QLabel("MMAC — Marcos Martinez Analista Contable")
+        titulo = QLabel(nombre_estudio)
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         titulo.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0;")
 
@@ -52,6 +57,7 @@ class VentanaTipoCliente(QWidget):
         self.btn_liq.clicked.connect(self._abrir_liquidador)
         self.btn_honor.clicked.connect(self._abrir_honorarios)
 
+        self._nombre_estudio = nombre_estudio
         self._ventanas = []
 
     def _abrir_monotributistas(self):
@@ -68,7 +74,8 @@ class VentanaTipoCliente(QWidget):
 
     def _abrir_liquidador(self):
         from M7LiquidadorSueldos import VentanaLiquidadorSueldos
-        v = VentanaLiquidadorSueldos(); v.show(); self._ventanas.append(v)
+        v = VentanaLiquidadorSueldos(nombre_estudio=self._nombre_estudio)
+        v.show(); self._ventanas.append(v)
 
     def _abrir_honorarios(self):
         from MHonorarios import PanelHonorarios

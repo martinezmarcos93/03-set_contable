@@ -37,12 +37,17 @@ JORNADAS = ["4", "5", "6", "7", "8"]
 
 # ─────────────────────────────────────────────────────────────
 class VentanaLiquidadorSueldos(QWidget):
-    def __init__(self):
+    def __init__(self, nombre_estudio: str = "Software Contable"):
         super().__init__()
-        self.setWindowTitle("Liquidador de Sueldos — CCT 130/75 — MMAC")
-        self.setGeometry(80, 60, 700, 780)
+        self._nombre_estudio = nombre_estudio
+        self.setWindowTitle("Liquidador de Sueldos — CCT 130/75")
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
+
+        from PyQt6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.resize(700, 780)
+        self.move(screen.center().x() - 350, screen.center().y() - 390)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -435,7 +440,7 @@ class VentanaLiquidadorSueldos(QWidget):
         c.drawString(50, 93,
             "dejando constancia de haber recibido duplicado del presente recibo.")
         c.drawString(50, 65, "Firma del empleado: ____________________________")
-        c.drawString(50, 30, "MMAC — Marcos Martinez Analista Contable")
+        c.drawString(50, 30, self._nombre_estudio)
 
         c.showPage()
         c.save()

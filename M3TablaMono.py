@@ -1,3 +1,7 @@
+"""
+M3TablaMono.py — Panel de Monotributistas
+"""
+
 import sys
 import os
 import sqlite3
@@ -7,7 +11,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QGridLayout, QHeaderView, QCheckBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QColor, QGuiApplication
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
 DB_PATH   = os.path.join(DATA_DIR, "datos_monot.db")
@@ -18,12 +22,14 @@ COLS_DISPLAY = [
     "Clave AFIP", "Clave Agip/Arba", "IIBB",
     "Observaciones", "Condición"
 ]
-COLS_DB = [
-    "revision", "nombre", "categoria", "actividad", "cuit",
-    "clave_afip", "clave_agip_arba", "iibb",
-    "observaciones", "condicion"
-]
 CONDICIONES = ["Casual", "Mensual", "Baja"]
+
+COLORES_CONDICION = {
+    "Baja":    QColor("#ffcccc"),
+    "Mensual": QColor("#ccffcc"),
+    "Casual":  QColor("#ffffff"),
+}
+COLOR_DEFAULT = QColor("#ffffff")
 
 
 def get_conn():
@@ -55,9 +61,12 @@ class FormDialog(QWidget):
         self.row_id = row_id
         is_edit = row_data is not None
         self.setWindowTitle("Editar cliente" if is_edit else "Agregar cliente")
-        self.setGeometry(200, 200, 380, 420)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
+
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        self.resize(380, 420)
+        self.move(screen.center().x() - 190, screen.center().y() - 210)
 
         grid = QGridLayout()
         self.fields = {}
@@ -108,10 +117,11 @@ class FormDialog(QWidget):
             self.fields["clave_afip"].setText(c_afip or "")
             self.fields["clave_agip_arba"].setText(c_agip or "")
             self.fields["iibb"].setText(iibb or "")
-            if isinstance(self.fields["observaciones"], QTextEdit):
-                self.fields["observaciones"].setPlainText(obs or "")
+            w_obs = self.fields["observaciones"]
+            if isinstance(w_obs, QTextEdit):
+                w_obs.setPlainText(obs or "")
             else:
-                self.fields["observaciones"].setText(obs or "")
+                w_obs.setText(obs or "")
             idx = self.combo_condicion.findText(cond or "")
             if idx >= 0:
                 self.combo_condicion.setCurrentIndex(idx)
@@ -120,9 +130,7 @@ class FormDialog(QWidget):
     def _guardar(self):
         def val(k):
             w = self.fields[k]
-            if isinstance(w, QTextEdit):
-                return w.toPlainText().strip()
-            return w.text().strip()
+            return w.toPlainText().strip() if isinstance(w, QTextEdit) else w.text().strip()
 
         data = {k: val(k) for k in self.fields}
         data["condicion"] = self.combo_condicion.currentText()
@@ -160,12 +168,10 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         init_db()
-        self.setWindowTitle("Monotributistas — MMAC")
+        self.setWindowTitle("Monotributistas")
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Centrar en pantalla
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.resize(1100, 700)
         self.move(
@@ -224,11 +230,10 @@ class MainWindow(QWidget):
         self.setLayout(layout)
 
         self._row_ids = []
-        self._detalles = []
         self.load_data()
 
     def load_data(self):
-        q = self.search_input.text().strip().lower()
+        q      = self.search_input.text().strip().lower()
         filtro = self.combo_filtro.currentText()
 
         with get_conn() as conn:
@@ -247,8 +252,6 @@ class MainWindow(QWidget):
         self._row_ids = [r[0] for r in rows]
         self.table.setRowCount(len(rows))
 
-        COLORES = {"Baja": "#ffcccc", "Mensual": "#ccffcc", "Casual": "#ffffff"}
-
         for r_i, row in enumerate(rows):
             display_vals = [
                 "✔" if row[1] else "",
@@ -256,12 +259,11 @@ class MainWindow(QWidget):
                 row[6] or "", row[7] or "", row[8] or "",
                 row[9] or "", row[10] or "",
             ]
-            color = COLORES.get(row[10] or "", "#ffffff")
-            from PyQt6.QtGui import QColor
+            color = COLORES_CONDICION.get(row[10] or "", COLOR_DEFAULT)
             for c_i, val in enumerate(display_vals):
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(QColor(color))
+                item.setBackground(color)
                 self.table.setItem(r_i, c_i, item)
 
     def _get_selected_id(self):
@@ -277,23 +279,19 @@ class MainWindow(QWidget):
             ).fetchone()
 
     def _agregar(self):
-        self._form = FormDialog(self)
-        self._form.show()
+        self._form = FormDialog(self); self._form.show()
 
     def _editar(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar.")
-            return
-        data = self._get_row_data(row_id)
-        self._form = FormDialog(self, row_data=data, row_id=row_id)
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar."); return
+        self._form = FormDialog(self, row_data=self._get_row_data(row_id), row_id=row_id)
         self._form.show()
 
     def _abrir_detalle(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila.")
-            return
+            QMessageBox.warning(self, "Error", "Seleccioná una fila."); return
         nombre_item = self.table.item(row, 1)
         nombre = nombre_item.text() if nombre_item else f"Cliente #{row_id}"
         from MClienteDetalle import VentanaDetalle
@@ -303,15 +301,12 @@ class MainWindow(QWidget):
     def _eliminar(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar.")
-            return
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar."); return
         nombre = self.table.item(row, 1).text()
-        confirm = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar a {nombre}?",
+        if QMessageBox.question(
+            self, "Confirmar eliminación", f"¿Eliminar a {nombre}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if confirm == QMessageBox.StandardButton.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             with get_conn() as conn:
                 conn.execute('DELETE FROM monotributistas WHERE id=?', (row_id,))
             self.load_data()
@@ -319,6 +314,5 @@ class MainWindow(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    w = MainWindow()
-    w.show()
+    w = MainWindow(); w.show()
     sys.exit(app.exec())

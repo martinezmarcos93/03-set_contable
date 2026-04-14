@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QFrame, QSplitter, QDialog, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QDate
-from PyQt6.QtGui import QIcon, QColor, QFont
+from PyQt6.QtGui import QIcon, QColor, QFont, QGuiApplication
 
 DATA_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
 DB_PATH   = os.path.join(DATA_DIR, "clientes.db")
@@ -142,23 +142,19 @@ class DialogMovimiento(QDialog):
 
         layout = QGridLayout()
 
-        # Fecha
         layout.addWidget(QLabel("Fecha (AAAA-MM-DD):"), 0, 0)
         self.inp_fecha = QLineEdit(date.today().isoformat())
         layout.addWidget(self.inp_fecha, 0, 1)
 
-        # Descripción
         layout.addWidget(QLabel("Descripción:"), 1, 0)
         self.inp_desc = QLineEdit()
         layout.addWidget(self.inp_desc, 1, 1)
 
-        # Monto
         layout.addWidget(QLabel("Monto ($):"), 2, 0)
         self.inp_monto = QLineEdit()
         self.inp_monto.setPlaceholderText("0.00")
         layout.addWidget(self.inp_monto, 2, 1)
 
-        # Tipo
         layout.addWidget(QLabel("Tipo:"), 3, 0)
         self.combo_tipo = QComboBox()
         self.combo_tipo.addItems(["Debe (cargo)", "Haber (pago)"])
@@ -206,37 +202,31 @@ class VentanaDetalle(QWidget):
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Centrar en pantalla
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.resize(900, 720)
-        self.move(
-            screen.center().x() - self.width() // 2,
-            screen.center().y() - self.height() // 2
-        )
+        self.move(screen.center().x() - 450, screen.center().y() - 360)
 
         main = QVBoxLayout(self)
         main.setContentsMargins(16, 16, 16, 16)
-        main.setSpacing(12)
 
-        # Título
-        titulo = QLabel(f"<b>{nombre}</b>")
-        titulo.setStyleSheet("font-size: 15px; padding: 4px 0;")
-        main.addWidget(titulo)
+        # Título cliente
+        lbl_titulo = QLabel(f"{'Monotributista' if tipo == 'mono' else 'Resp. Inscripto'}: {nombre}")
+        lbl_titulo.setStyleSheet("font-size:14px; font-weight:bold; padding:4px 0;")
+        main.addWidget(lbl_titulo)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # ── Sección superior: datos + honorarios ─────────────
+        # ── Sección superior ──────────────────────────────────
         top = QWidget()
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Datos de contacto
+        # Contacto
         grp_contacto = QGroupBox("Datos de contacto")
         g_c = QGridLayout()
         self.inp = {}
         campos = [
-            ("cel",   "Celular"),
+            ("cel",   "Teléfono"),
             ("mail",  "Mail"),
             ("banco", "Banco"),
             ("cbu",   "CBU"),
@@ -264,13 +254,11 @@ class VentanaDetalle(QWidget):
         h_row.addStretch()
         g_h.addLayout(h_row)
 
-        # Botón cargar cuota
         btn_cuota = QPushButton("Cargar cuota del mes actual")
         btn_cuota.setStyleSheet("background:#1a5276; color:white; padding:6px 12px; border-radius:4px;")
         btn_cuota.clicked.connect(self._cargar_cuota)
         g_h.addWidget(btn_cuota)
 
-        # Saldo actual
         self.lbl_saldo = QLabel("Saldo: —")
         self.lbl_saldo.setStyleSheet("font-weight:bold; font-size:13px;")
         g_h.addWidget(self.lbl_saldo)
@@ -289,7 +277,6 @@ class VentanaDetalle(QWidget):
         grp_cc = QGroupBox("Cuenta corriente")
         g_cc = QVBoxLayout()
 
-        # Tabla
         self.table_cc = QTableWidget()
         self.table_cc.setColumnCount(6)
         self.table_cc.setHorizontalHeaderLabels(
@@ -302,7 +289,6 @@ class VentanaDetalle(QWidget):
         self.table_cc.verticalHeader().setVisible(False)
         g_cc.addWidget(self.table_cc)
 
-        # Botones CC
         btn_row = QHBoxLayout()
         btn_nuevo_debe  = QPushButton("+ Cargo manual")
         btn_nuevo_haber = QPushButton("+ Registrar pago")
@@ -322,7 +308,6 @@ class VentanaDetalle(QWidget):
         splitter.setSizes([260, 420])
         main.addWidget(splitter)
 
-        # Cargar datos
         self._cargar_todo()
 
     # ── helpers ──────────────────────────────────────────────
@@ -348,25 +333,20 @@ class VentanaDetalle(QWidget):
             for c_i, v in enumerate(vals):
                 item = QTableWidgetItem(v)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                # Color de fondo por tipo
                 if c_i == 3 and debe:
                     item.setBackground(QColor("#fdecea"))
                 elif c_i == 4 and haber:
                     item.setBackground(QColor("#eafaf1"))
-                # Saldo: rojo si positivo (debe), verde si negativo (pagado de más)
                 if c_i == 5:
                     item.setBackground(
                         QColor("#fdecea") if saldo > 0 else QColor("#eafaf1")
                     )
                 self.table_cc.setItem(r_i, c_i, item)
 
-        # Saldo en el panel de honorarios
         color = "#922b21" if saldo > 0 else "#1e8449"
         signo = "Debe" if saldo > 0 else "A favor"
         self.lbl_saldo.setText(f"Saldo actual: {signo}  ${abs(saldo):,.2f}")
         self.lbl_saldo.setStyleSheet(f"font-weight:bold; font-size:13px; color:{color};")
-
-        # Scroll al final
         self.table_cc.scrollToBottom()
 
     def _guardar_datos(self):
@@ -375,12 +355,12 @@ class VentanaDetalle(QWidget):
         except ValueError:
             hon = 0.0
         save_detalle(self.tipo, self.cliente_id, {
-            "cel":       self.inp["cel"].text().strip(),
-            "mail":      self.inp["mail"].text().strip(),
-            "banco":     self.inp["banco"].text().strip(),
-            "cbu":       self.inp["cbu"].text().strip(),
+            "cel":        self.inp["cel"].text().strip(),
+            "mail":       self.inp["mail"].text().strip(),
+            "banco":      self.inp["banco"].text().strip(),
+            "cbu":        self.inp["cbu"].text().strip(),
             "honorarios": hon,
-            "notas":     self.inp_notas.toPlainText().strip(),
+            "notas":      self.inp_notas.toPlainText().strip(),
         })
         QMessageBox.information(self, "Guardado", "Datos actualizados correctamente.")
 
@@ -400,12 +380,11 @@ class VentanaDetalle(QWidget):
         mes_nombre = MESES[hoy.month - 1]
         desc = f"Honorarios {mes_nombre} {hoy.year}"
 
-        confirm = QMessageBox.question(
+        if QMessageBox.question(
             self, "Cargar cuota",
             f"¿Cargar cuota de  ${hon:,.2f}  ({desc})?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if confirm == QMessageBox.StandardButton.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             add_movimiento(
                 self.tipo, self.cliente_id,
                 hoy.isoformat(), desc,
@@ -437,11 +416,10 @@ class VentanaDetalle(QWidget):
             return
         mov_id = int(self.table_cc.item(row, 0).text())
         desc   = self.table_cc.item(row, 2).text()
-        confirm = QMessageBox.question(
+        if QMessageBox.question(
             self, "Eliminar movimiento",
             f"¿Eliminar '{desc}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if confirm == QMessageBox.StandardButton.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             del_movimiento(mov_id)
             self._reload_cc()

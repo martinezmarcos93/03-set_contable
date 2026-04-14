@@ -1,3 +1,10 @@
+"""
+M4TablaResp.py — Panel de Responsables Inscriptos
+==================================================
+Nombre de tabla SQLite cambiado de 'estudio_contable_responsables_inscriptos'
+a 'responsables_inscriptos' (genérico, sin nombre personal).
+"""
+
 import sys
 import os
 import sqlite3
@@ -7,7 +14,7 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QHeaderView, QComboBox, QCheckBox, QTextEdit
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QColor
+from PyQt6.QtGui import QIcon, QColor, QGuiApplication
 
 DATA_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Data")
 DB_PATH   = os.path.join(DATA_DIR, "datos_resp.db")
@@ -23,10 +30,11 @@ CONDICIONES_IIBB = ["Contribuyente", "Convenio Multilateral", "Exento", "No insc
 CONDICIONES_GRAL = ["Activo", "Baja", "Suspendido"]
 
 COLORES = {
-    "Activo":    "#ccffcc",
-    "Baja":      "#ffcccc",
-    "Suspendido":"#fff3cc",
+    "Activo":     QColor("#ccffcc"),
+    "Baja":       QColor("#ffcccc"),
+    "Suspendido": QColor("#fff3cc"),
 }
+COLOR_DEFAULT = QColor("#ffffff")
 
 
 def get_conn():
@@ -37,16 +45,16 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.execute(f'''CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            revision      INTEGER DEFAULT 0,
-            razon_social  TEXT,
-            cuit          TEXT,
-            clave_arca    TEXT,
-            clave_arba    TEXT,
-            clave_agip    TEXT,
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            revision       INTEGER DEFAULT 0,
+            razon_social   TEXT,
+            cuit           TEXT,
+            clave_arca     TEXT,
+            clave_arba     TEXT,
+            clave_agip     TEXT,
             condicion_iibb TEXT,
-            observaciones TEXT,
-            condicion     TEXT DEFAULT 'Activo'
+            observaciones  TEXT,
+            condicion      TEXT DEFAULT 'Activo'
         )''')
 
 
@@ -57,12 +65,9 @@ class FormDialog(QWidget):
         self.row_id = row_id
         is_edit = row_data is not None
         self.setWindowTitle("Editar cliente" if is_edit else "Agregar cliente")
-        self.setMinimumWidth(400)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Centrar
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.resize(420, 400)
         self.move(screen.center().x() - 210, screen.center().y() - 200)
@@ -83,26 +88,22 @@ class FormDialog(QWidget):
             self.fields[key] = w
             grid.addWidget(w, i, 1)
 
-        # Condición IIBB
         r = len(text_fields)
         grid.addWidget(QLabel("Condición IIBB:"), r, 0)
         self.combo_iibb = QComboBox()
         self.combo_iibb.addItems(CONDICIONES_IIBB)
         grid.addWidget(self.combo_iibb, r, 1)
 
-        # Observaciones
         grid.addWidget(QLabel("Observaciones:"), r+1, 0, Qt.AlignmentFlag.AlignTop)
         self.txt_obs = QTextEdit()
         self.txt_obs.setFixedHeight(60)
         grid.addWidget(self.txt_obs, r+1, 1)
 
-        # Condición general
         grid.addWidget(QLabel("Estado:"), r+2, 0)
         self.combo_cond = QComboBox()
         self.combo_cond.addItems(CONDICIONES_GRAL)
         grid.addWidget(self.combo_cond, r+2, 1)
 
-        # Revisión
         self.chk_rev = QCheckBox("Marcado para revisión")
         grid.addWidget(self.chk_rev, r+3, 0, 1, 2)
 
@@ -115,8 +116,6 @@ class FormDialog(QWidget):
         self.setLayout(grid)
 
         if is_edit:
-            # (id, revision, razon_social, cuit, clave_arca, clave_arba,
-            #  clave_agip, condicion_iibb, observaciones, condicion)
             _, rev, rs, cuit, arca, arba, agip, c_iibb, obs, cond = row_data
             self.fields["razon_social"].setText(rs or "")
             self.fields["cuit"].setText(cuit or "")
@@ -131,11 +130,11 @@ class FormDialog(QWidget):
             self.chk_rev.setChecked(bool(rev))
 
     def _guardar(self):
-        rs   = self.fields["razon_social"].text().strip()
-        cuit = self.fields["cuit"].text().strip()
-        arca = self.fields["clave_arca"].text().strip()
-        arba = self.fields["clave_arba"].text().strip()
-        agip = self.fields["clave_agip"].text().strip()
+        rs     = self.fields["razon_social"].text().strip()
+        cuit   = self.fields["cuit"].text().strip()
+        arca   = self.fields["clave_arca"].text().strip()
+        arba   = self.fields["clave_arba"].text().strip()
+        agip   = self.fields["clave_agip"].text().strip()
         c_iibb = self.combo_iibb.currentText()
         obs    = self.txt_obs.toPlainText().strip()
         cond   = self.combo_cond.currentText()
@@ -163,15 +162,13 @@ class FormDialog(QWidget):
 
 
 class MainWindowRI(QWidget):
-    def __init__(self, table_name=TABLE_NAME, window_title="Responsables Inscriptos — MMAC"):
+    def __init__(self, window_title="Responsables Inscriptos"):
         super().__init__()
         init_db()
         self.setWindowTitle(window_title)
         if os.path.exists(LOGO_PATH):
             self.setWindowIcon(QIcon(LOGO_PATH))
 
-        # Centrar
-        from PyQt6.QtGui import QGuiApplication
         screen = QGuiApplication.primaryScreen().availableGeometry()
         self.resize(1100, 700)
         self.move(
@@ -179,7 +176,6 @@ class MainWindowRI(QWidget):
             screen.center().y() - self.height() // 2
         )
 
-        # Barra búsqueda
         search_bar = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por razón social o CUIT...")
@@ -193,7 +189,6 @@ class MainWindowRI(QWidget):
         search_bar.addWidget(QLabel("Estado:"))
         search_bar.addWidget(self.combo_filtro)
 
-        # Tabla
         self.table = QTableWidget()
         self.table.setColumnCount(len(COLS_DISPLAY))
         self.table.setHorizontalHeaderLabels(COLS_DISPLAY)
@@ -203,7 +198,6 @@ class MainWindowRI(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.doubleClicked.connect(self._abrir_detalle)
 
-        # Botones
         btn_layout = QHBoxLayout()
         self.btn_add    = QPushButton("+ Agregar")
         self.btn_edit   = QPushButton("Editar datos")
@@ -254,19 +248,17 @@ class MainWindowRI(QWidget):
         self.table.setRowCount(len(rows))
 
         for r_i, row in enumerate(rows):
-            # (id, revision, razon_social, cuit, clave_arca, clave_arba,
-            #  clave_agip, condicion_iibb, observaciones, condicion)
             display_vals = [
                 "✔" if row[1] else "",
                 row[2] or "", row[3] or "", row[4] or "",
                 row[5] or "", row[6] or "", row[7] or "",
                 row[8] or "",
             ]
-            color = COLORES.get(row[9] or "", "#ffffff")
+            color = COLORES.get(row[9] or "", COLOR_DEFAULT)
             for c_i, val in enumerate(display_vals):
                 item = QTableWidgetItem(val)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(QColor(color))
+                item.setBackground(color)
                 self.table.setItem(r_i, c_i, item)
 
     def _get_selected_id(self):
@@ -282,23 +274,19 @@ class MainWindowRI(QWidget):
             ).fetchone()
 
     def _agregar(self):
-        self._form = FormDialog(self)
-        self._form.show()
+        self._form = FormDialog(self); self._form.show()
 
     def _editar(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar.")
-            return
-        data = self._get_row_data(row_id)
-        self._form = FormDialog(self, row_data=data, row_id=row_id)
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para editar."); return
+        self._form = FormDialog(self, row_data=self._get_row_data(row_id), row_id=row_id)
         self._form.show()
 
     def _abrir_detalle(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila.")
-            return
+            QMessageBox.warning(self, "Error", "Seleccioná una fila."); return
         nombre_item = self.table.item(row, 1)
         nombre = nombre_item.text() if nombre_item else f"Cliente #{row_id}"
         from MClienteDetalle import VentanaDetalle
@@ -308,15 +296,12 @@ class MainWindowRI(QWidget):
     def _eliminar(self):
         row, row_id = self._get_selected_id()
         if row_id is None:
-            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar.")
-            return
+            QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar."); return
         nombre = self.table.item(row, 1).text()
-        confirm = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar a {nombre}?",
+        if QMessageBox.question(
+            self, "Confirmar eliminación", f"¿Eliminar a {nombre}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if confirm == QMessageBox.StandardButton.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             with get_conn() as conn:
                 conn.execute(f'DELETE FROM {TABLE_NAME} WHERE id=?', (row_id,))
             self.load_data()
@@ -324,6 +309,5 @@ class MainWindowRI(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    w = MainWindowRI()
-    w.show()
+    w = MainWindowRI(); w.show()
     sys.exit(app.exec())
