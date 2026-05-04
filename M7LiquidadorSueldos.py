@@ -229,17 +229,26 @@ class VentanaLiquidadorSueldos(QWidget):
         btn_layout = QHBoxLayout()
         self.btn_calcular = QPushButton("Calcular")
         self.btn_pdf      = QPushButton("Generar PDF")
+        self.btn_lsd      = QPushButton("📄 Generar TXT LSD")
         self.btn_limpiar  = QPushButton("Limpiar")
         self.btn_pdf.setEnabled(False)
+        self.btn_lsd.setEnabled(False)
+        self.btn_lsd.setStyleSheet(
+            "background:#1a5276; color:white; padding:5px 12px; border-radius:4px;"
+        )
+        self.btn_lsd.setToolTip(
+            "Exporta la liquidación calculada al formato TXT del Libro de Sueldos Digital (ARCA)"
+        )
 
         self.btn_calcular.clicked.connect(self._calcular)
         self.btn_pdf.clicked.connect(self._generar_pdf)
+        self.btn_lsd.clicked.connect(self._exportar_lsd)
         self.btn_limpiar.clicked.connect(self._limpiar)
 
         if not REPORTLAB_OK:
             self.btn_pdf.setToolTip("Instalá reportlab para habilitar esta función: pip install reportlab")
 
-        for b in (self.btn_calcular, self.btn_pdf, self.btn_limpiar):
+        for b in (self.btn_calcular, self.btn_pdf, self.btn_lsd, self.btn_limpiar):
             btn_layout.addWidget(b)
 
         # ── ARMAR LAYOUT ──────────────────────────────────────
@@ -338,6 +347,7 @@ class VentanaLiquidadorSueldos(QWidget):
 
         self.lbl_res["neto"].setText(f"$ {neto:,.2f}")
         self.btn_pdf.setEnabled(REPORTLAB_OK)
+        self.btn_lsd.setEnabled(True)
 
     # ── PDF ───────────────────────────────────────────────────
     def _generar_pdf(self):
@@ -474,6 +484,28 @@ class VentanaLiquidadorSueldos(QWidget):
             lbl.setText("—")
         self._ultimo_calculo = None
         self.btn_pdf.setEnabled(False)
+        self.btn_lsd.setEnabled(False)
+
+    # ── Exportar al LSD ───────────────────────────────────────
+    def _exportar_lsd(self):
+        """Abre la ventana M9 pasándole el resultado del cálculo actual."""
+        if self._ultimo_calculo is None:
+            QMessageBox.warning(self, "Sin cálculo",
+                "Calculá la liquidación antes de exportar al LSD.")
+            return
+        from M9LSDExport import VentanaExportLSD
+        empleado_m7 = {
+            "cuil":      self._v("cuil"),
+            "dias":      self._v("dias"),
+            "mes_nombre": self.combo_mes.currentText(),
+            "anio":      self.combo_anio.currentText(),
+        }
+        self._lsd_win = VentanaExportLSD(
+            calculo         = self._ultimo_calculo,
+            empleado_m7     = empleado_m7,
+            nombre_estudio  = self._nombre_estudio,
+        )
+        self._lsd_win.show()
 
 
 if __name__ == "__main__":

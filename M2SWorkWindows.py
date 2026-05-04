@@ -37,6 +37,10 @@ class VentanaTipoCliente(QWidget):
         self.btn_resp  = QPushButton("Panel de Responsables Inscriptos")
         self.btn_calc  = QPushButton("Calculadoras")
         self.btn_liq   = QPushButton("Liquidador de Sueldos")
+        self.btn_lsd   = QPushButton("📄  Libro de Sueldos Digital — Configuración")
+        self.btn_lsd.setStyleSheet(
+            "background:#1a5276; color:white; padding:6px; border-radius:4px;"
+        )
         self.btn_honor = QPushButton("Honorarios Cobrados")
         self.btn_honor.setStyleSheet(
             "background:#1e8449; color:white; padding:6px; border-radius:4px;"
@@ -46,7 +50,7 @@ class VentanaTipoCliente(QWidget):
         layout.addWidget(titulo)
         layout.addSpacing(6)
         for btn in (self.btn_mono, self.btn_resp, self.btn_calc,
-                    self.btn_liq, self.btn_honor):
+                    self.btn_liq, self.btn_lsd, self.btn_honor):
             layout.addWidget(btn)
         layout.setContentsMargins(20, 12, 20, 20)
         self.setLayout(layout)
@@ -55,6 +59,7 @@ class VentanaTipoCliente(QWidget):
         self.btn_resp.clicked.connect(self._abrir_responsables)
         self.btn_calc.clicked.connect(self._abrir_calculadora)
         self.btn_liq.clicked.connect(self._abrir_liquidador)
+        self.btn_lsd.clicked.connect(self._abrir_lsd_config)
         self.btn_honor.clicked.connect(self._abrir_honorarios)
 
         self._nombre_estudio = nombre_estudio
@@ -75,6 +80,11 @@ class VentanaTipoCliente(QWidget):
     def _abrir_liquidador(self):
         from M7LiquidadorSueldos import VentanaLiquidadorSueldos
         v = VentanaLiquidadorSueldos(nombre_estudio=self._nombre_estudio)
+        v.show(); self._ventanas.append(v)
+
+    def _abrir_lsd_config(self):
+        from M8LSDConfig import VentanaLSDConfig
+        v = VentanaLSDConfig(nombre_estudio=self._nombre_estudio)
         v.show(); self._ventanas.append(v)
 
     def _abrir_honorarios(self):
