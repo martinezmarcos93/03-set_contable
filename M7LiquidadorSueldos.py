@@ -236,6 +236,9 @@ class VentanaLiquidadorSueldos(QWidget):
         self.btn_pdf.clicked.connect(self._generar_pdf)
         self.btn_limpiar.clicked.connect(self._limpiar)
 
+        if not REPORTLAB_OK:
+            self.btn_pdf.setToolTip("Instalá reportlab para habilitar esta función: pip install reportlab")
+
         for b in (self.btn_calcular, self.btn_pdf, self.btn_limpiar):
             btn_layout.addWidget(b)
 
@@ -334,7 +337,7 @@ class VentanaLiquidadorSueldos(QWidget):
                 self.lbl_res[key].setText(fmt(val))
 
         self.lbl_res["neto"].setText(f"$ {neto:,.2f}")
-        self.btn_pdf.setEnabled(True)
+        self.btn_pdf.setEnabled(REPORTLAB_OK)
 
     # ── PDF ───────────────────────────────────────────────────
     def _generar_pdf(self):

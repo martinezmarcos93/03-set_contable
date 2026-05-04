@@ -10,6 +10,7 @@ import sys
 import json
 import hashlib
 import os
+import secrets
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit,
     QPushButton, QVBoxLayout, QFormLayout,
@@ -24,8 +25,8 @@ CREDENCIALES_PATH = os.path.join(DATA_DIR, "credenciales.json")
 LOGO_PATH         = os.path.join(DATA_DIR, "logo1.jpg")
 
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+def hash_password(password: str, salt: str = "") -> str:
+    return hashlib.sha256((salt + password).encode()).hexdigest()
 
 
 def _icon():
@@ -109,10 +110,12 @@ class VentanaPrimerUso(QWidget):
             QMessageBox.warning(self, "Error", "Las contraseñas no coinciden."); return
 
         os.makedirs(DATA_DIR, exist_ok=True)
+        salt = secrets.token_hex(16)
         config = {
             "estudio":  estudio,
             "usuario":  usuario,
-            "hash":     hash_password(pass1),
+            "salt":     salt,
+            "hash":     hash_password(pass1, salt),
             "recordar": False
         }
         with open(CREDENCIALES_PATH, "w", encoding="utf-8") as f:
@@ -186,7 +189,8 @@ class VentanaInicioSesion(QWidget):
                 "Usá 'Restablecer credenciales' para reconfigurar.")
             return
 
-        if usuario == creds.get("usuario", "") and hash_password(contrasena) == hash_ok:
+        salt = creds.get("salt", "")
+        if usuario == creds.get("usuario", "") and hash_password(contrasena, salt) == hash_ok:
             if self.recordar_checkbox.isChecked():
                 self._guardar_usuario_recordado(usuario, creds)
             else:
