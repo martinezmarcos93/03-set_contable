@@ -414,7 +414,10 @@ class VentanaDetalle(QWidget):
         if row < 0:
             QMessageBox.warning(self, "Error", "Seleccioná un movimiento para eliminar.")
             return
-        mov_id = int(self.table_cc.item(row, 0).text())
+        id_item = self.table_cc.item(row, 0)
+        if id_item is None:
+            return
+        mov_id = int(id_item.text())
         desc   = self.table_cc.item(row, 2).text()
         if QMessageBox.question(
             self, "Eliminar movimiento",

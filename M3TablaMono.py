@@ -302,7 +302,8 @@ class MainWindow(QWidget):
         row, row_id = self._get_selected_id()
         if row_id is None:
             QMessageBox.warning(self, "Error", "Seleccioná una fila para eliminar."); return
-        nombre = self.table.item(row, 1).text()
+        nombre_item = self.table.item(row, 1)
+        nombre = nombre_item.text() if nombre_item else f"Cliente #{row_id}"
         if QMessageBox.question(
             self, "Confirmar eliminación", f"¿Eliminar a {nombre}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No

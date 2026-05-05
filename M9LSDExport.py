@@ -258,8 +258,8 @@ def calcular_bases_imponibles(calculo: dict, tope: float | None) -> dict:
     sub_nr        = calculo.get("sub_no_rem", 0.0)
     rem_bruta     = sub_rem + sub_nr
 
-    bi1 = min(sub_rem, tope) if tope else sub_rem
-    bi4 = min(sub_rem + asist_no_rem + no_rem_base, tope) if tope else (sub_rem + asist_no_rem + no_rem_base)
+    bi1 = min(sub_rem, tope) if tope is not None else sub_rem
+    bi4 = min(sub_rem + asist_no_rem + no_rem_base, tope) if tope is not None else (sub_rem + asist_no_rem + no_rem_base)
     bi8 = sub_rem + asist_no_rem + no_rem_base
 
     return {
@@ -310,7 +310,7 @@ def build_txt_desde_liquidacion(
     from M8LSDConfig import leer_empleador  # importación tardía para evitar circular
 
     cuil        = str(empleado_m7.get("cuil", "")).strip()
-    dias_liq    = str(int(empleado_m7.get("dias", 30)))
+    dias_liq    = str(int(float(empleado_m7.get("dias", 30))))
     forma_pago  = nomina.get("forma_pago", "1")
     cbu         = nomina.get("cbu", "")
 

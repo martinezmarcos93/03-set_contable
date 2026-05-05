@@ -240,6 +240,7 @@ class VentanaInicioSesion(QWidget):
     def _borrar_usuario_recordado(self, creds: dict):
         creds.pop("recordar", None)
         creds.pop("usuario_recordado", None)
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(CREDENCIALES_PATH, "w", encoding="utf-8") as f:
             json.dump(creds, f, ensure_ascii=False, indent=2)
 
